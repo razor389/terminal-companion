@@ -170,3 +170,5 @@ _.env.pipeline.production.local
 .dolt/
 .beads-credential-key
 .beads/proxieddb/
+
+/.beads.gate.lock
