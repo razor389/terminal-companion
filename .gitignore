@@ -165,3 +165,8 @@ _.env.pipeline.production.local
 
 # Local Terminal Companion coordination artifacts (not product data)
 /.companion-local/
+
+# Beads / Dolt files (added by bd init)
+.dolt/
+.beads-credential-key
+.beads/proxieddb/

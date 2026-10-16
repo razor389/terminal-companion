@@ -28,3 +28,6 @@ developer_instructions = """
 [mcp_servers.sentry]
 type = "http"
 url = "https://mcp.sentry.dev/mcp"
+
+[features]
+hooks = true
