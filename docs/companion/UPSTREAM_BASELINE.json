@@ -1,0 +1,15 @@
+{
+  "recordedAt": "2026-10-16T16:04:55.296Z",
+  "sourceCommit": "cb5f427183391e8f65b8ffa7f1682e10d3a045f7",
+  "branchAtRecording": "companion/main",
+  "packageManagerAtSnapshot": "yarn@1.22.22",
+  "nodeUsedForRecording": "v22.14.0",
+  "note": "Snapshot selected before the starter commit. Not a build, runtime compatibility, or security certification.",
+  "compatibility": {
+    "windows": "not yet tested",
+    "android": "not yet tested",
+    "codex": "not yet tested",
+    "claude": "not yet tested",
+    "opencode": "not yet tested"
+  }
+}

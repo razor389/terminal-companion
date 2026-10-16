@@ -162,3 +162,6 @@ _.env.pipeline.production.local
 /apps/ui/scripts/icons/scanner.mjs
 /apps/ui/scripts/icons/snapSizes.mjs
 /apps/website/.playwright-mcp
+
+# Local Terminal Companion coordination artifacts (not product data)
+/.companion-local/

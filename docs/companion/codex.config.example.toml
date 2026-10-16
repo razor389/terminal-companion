@@ -1,0 +1,11 @@
+# OPTIONAL reviewed defaults, not an automatically installed project config.
+# Merge into your existing Codex configuration; never overwrite it wholesale.
+# CLI flags provide the same initial behavior without creating this file.
+approval_policy = "on-request"
+sandbox_mode = "workspace-write"
+# Do not pin a model you may not have access to.
+# Separate writable Codex sessions use separate Git worktrees.
+# Local Beads TCP and shared metadata may need a narrowly scoped approval.
+
+# Preserve long upstream + fork + Beads instruction chains. Audit actual size.
+project_doc_max_bytes = 131072

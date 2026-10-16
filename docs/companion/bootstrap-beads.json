@@ -1,0 +1,460 @@
+{
+  "schemaVersion": 1,
+  "namespace": "terminal-companion/bootstrap-v1",
+  "beadsVersion": "1.3.1",
+  "expectedPrefix": "tc",
+  "notes": "Static bootstrap proposal, not live task status. Import once with the coordinator; reruns only skip existing records.",
+  "tasks": [
+    {
+      "key": "C00",
+      "title": "Terminal Companion first usable pilot",
+      "type": "epic",
+      "priority": 1,
+      "parent": null,
+      "depends_on": [],
+      "scope": "All required providers; terminal-first Android companion across desktops.",
+      "description": "Implement or investigate the bounded scope below under docs/companion/SPEC.md. Read the actual pinned source before naming paths. Coordinate shared owners and preserve native desktop/phone control.\n\nScope: All required providers; terminal-first Android companion across desktops.",
+      "acceptance": [
+        "Reviewed pilot meets docs/companion/ACCEPTANCE.md on declared versions.",
+        "Implementation tasks are integrated, not merely locally complete."
+      ]
+    },
+    {
+      "key": "C01",
+      "title": "Audit pinned upstream, tooling, owners and baseline",
+      "type": "task",
+      "priority": 1,
+      "parent": "C00",
+      "depends_on": [],
+      "scope": "Repository audit only; root/tooling/plan owner is coordinator.",
+      "description": "Implement or investigate the bounded scope below under docs/companion/SPEC.md. Read the actual pinned source before naming paths. Coordinate shared owners and preserve native desktop/phone control.\n\nScope: Repository audit only; root/tooling/plan owner is coordinator.",
+      "acceptance": [
+        "Record exact upstream SHA, Node/Yarn/Codex/bd/Dolt versions and actual native prerequisites.",
+        "Locate existing provider, terminal, daemon, protocol, Android and test owners.",
+        "Run safe baseline lanes and record failures/unrun checks honestly.",
+        "Produce REPO_AUDIT.md, compatibility record, and scoped next assignments."
+      ]
+    },
+    {
+      "key": "C02",
+      "title": "Define one shared interruption and response contract",
+      "type": "task",
+      "priority": 1,
+      "parent": "C00",
+      "depends_on": [
+        "C01"
+      ],
+      "scope": "Canonical protocol/lifecycle owner; review before adapter writers.",
+      "description": "Implement or investigate the bounded scope below under docs/companion/SPEC.md. Read the actual pinned source before naming paths. Coordinate shared owners and preserve native desktop/phone control.\n\nScope: Canonical protocol/lifecycle owner; review before adapter writers.",
+      "acceptance": [
+        "Specify machine/backend/session/run/request/action binding and capabilities.",
+        "Distinguish receipt, applied/resolved and indeterminate acknowledgement states.",
+        "Specify native/local arbitration, stale rejection and desktop-draft safety.",
+        "Choose actual existing owner and review with adapter/mobile/security consumers."
+      ]
+    },
+    {
+      "key": "C03",
+      "title": "Reproduce native Windows launcher and stderr lifecycle failure",
+      "type": "task",
+      "priority": 1,
+      "parent": "C00",
+      "depends_on": [
+        "C01"
+      ],
+      "scope": "Windows process/service launcher owner; isolated reproduction.",
+      "description": "Implement or investigate the bounded scope below under docs/companion/SPEC.md. Read the actual pinned source before naming paths. Coordinate shared owners and preserve native desktop/phone control.\n\nScope: Windows process/service launcher owner; isolated reproduction.",
+      "acceptance": [
+        "Reproduce or disprove the reported DEP0169 NativeCommandError shutdown with recorded versions.",
+        "A benign stderr warning does not kill a healthy child; real exit failures propagate.",
+        "No global ErrorActionPreference workaround or removal of diagnostics as the untested fix.",
+        "No existing user service/auth configuration is modified."
+      ]
+    },
+    {
+      "key": "C04",
+      "title": "Prove OpenCode native terminal plus remote response on Windows",
+      "type": "task",
+      "priority": 1,
+      "parent": "C00",
+      "depends_on": [
+        "C01"
+      ],
+      "scope": "Existing OpenCode integration; disposable live spike.",
+      "description": "Implement or investigate the bounded scope below under docs/companion/SPEC.md. Read the actual pinned source before naming paths. Coordinate shared owners and preserve native desktop/phone control.\n\nScope: Existing OpenCode integration; disposable live spike.",
+      "acceptance": [
+        "Native OpenCode TUI stays attached to the same active backend/session.",
+        "Exercise actual permission and question responses plus a local-first stale response.",
+        "Record server API/version capabilities and precise gaps.",
+        "No second resumed process or blanket allow policy."
+      ]
+    },
+    {
+      "key": "C05",
+      "title": "Prove Codex shared live control on native Windows",
+      "type": "task",
+      "priority": 1,
+      "parent": "C00",
+      "depends_on": [
+        "C01"
+      ],
+      "scope": "Existing Codex App Server/terminal boundary; disposable live spike.",
+      "description": "Implement or investigate the bounded scope below under docs/companion/SPEC.md. Read the actual pinned source before naming paths. Coordinate shared owners and preserve native desktop/phone control.\n\nScope: Existing Codex App Server/terminal boundary; disposable live spike.",
+      "acceptance": [
+        "Test concurrent native terminal and response bridge on the exact Codex version.",
+        "Observe native request arbitration and original terminal continuity.",
+        "Record unsupported transport/version behavior explicitly; no exclusive-handoff substitution.",
+        "A negative result identifies a bounded next experiment and blocks implementation gate."
+      ]
+    },
+    {
+      "key": "C06",
+      "title": "Prove Claude native terminal hooks and message path on Windows",
+      "type": "task",
+      "priority": 1,
+      "parent": "C00",
+      "depends_on": [
+        "C01"
+      ],
+      "scope": "Existing Claude unified-terminal/hooks/bridge; disposable live spike.",
+      "description": "Implement or investigate the bounded scope below under docs/companion/SPEC.md. Read the actual pinned source before naming paths. Coordinate shared owners and preserve native desktop/phone control.\n\nScope: Existing Claude unified-terminal/hooks/bridge; disposable live spike.",
+      "acceptance": [
+        "Permission bridge leaves a working local answer/cancel path.",
+        "Phone sends a message without overwriting a desktop draft.",
+        "Exact provider/runtime/hook versions and unresolved race cases are documented.",
+        "Native Windows behavior is actually exercised."
+      ]
+    },
+    {
+      "key": "C07",
+      "title": "Review trust boundaries and abuse cases",
+      "type": "task",
+      "priority": 1,
+      "parent": "C00",
+      "depends_on": [
+        "C01"
+      ],
+      "scope": "Security design review of existing transport, IPC, auth, notifications.",
+      "description": "Implement or investigate the bounded scope below under docs/companion/SPEC.md. Read the actual pinned source before naming paths. Coordinate shared owners and preserve native desktop/phone control.\n\nScope: Security design review of existing transport, IPC, auth, notifications.",
+      "acceptance": [
+        "Identify local/remote authorities, key ownership and metadata exposure.",
+        "Threat cases cover stale/replay/wrong-session/untrusted-output/revoked-device paths.",
+        "Review fork app/push/update/relay identity isolation.",
+        "No new cryptography introduced without a separate approved design."
+      ]
+    },
+    {
+      "key": "C08",
+      "title": "Build or extend deterministic adapter conformance tests",
+      "type": "task",
+      "priority": 1,
+      "parent": "C00",
+      "depends_on": [
+        "C02",
+        "C07"
+      ],
+      "scope": "Existing test owner; real internal logic with controlled external boundaries.",
+      "description": "Implement or investigate the bounded scope below under docs/companion/SPEC.md. Read the actual pinned source before naming paths. Coordinate shared owners and preserve native desktop/phone control.\n\nScope: Existing test owner; real internal logic with controlled external boundaries.",
+      "acceptance": [
+        "Tests detect double apply, stale run/request, desktop-first race and duplicate deliveries.",
+        "Tests cover lost acknowledgements, disconnect and draft preservation.",
+        "Document which guarantees require native live tests.",
+        "No redundant type-mirroring or internal-service mock-only tests."
+      ]
+    },
+    {
+      "key": "C09",
+      "title": "Isolate local session lifetime from remote synchronization",
+      "type": "task",
+      "priority": 1,
+      "parent": "C00",
+      "depends_on": [
+        "C02",
+        "C03"
+      ],
+      "scope": "Existing session/process and connector owners.",
+      "description": "Implement or investigate the bounded scope below under docs/companion/SPEC.md. Read the actual pinned source before naming paths. Coordinate shared owners and preserve native desktop/phone control.\n\nScope: Existing session/process and connector owners.",
+      "acceptance": [
+        "Connector termination and relay outages leave local native work usable.",
+        "Reconnect does not spawn a second agent or change launch profile.",
+        "Optional service startup is not necessary for attended wrapper launches.",
+        "Local host crash limitations and health reporting are explicit."
+      ]
+    },
+    {
+      "key": "C10",
+      "title": "Integrate OpenCode as the reference adapter",
+      "type": "task",
+      "priority": 1,
+      "parent": "C00",
+      "depends_on": [
+        "C04",
+        "C08",
+        "C09"
+      ],
+      "scope": "Existing OpenCode owner and tests only; consume shared contract.",
+      "description": "Implement or investigate the bounded scope below under docs/companion/SPEC.md. Read the actual pinned source before naming paths. Coordinate shared owners and preserve native desktop/phone control.\n\nScope: Existing OpenCode owner and tests only; consume shared contract.",
+      "acceptance": [
+        "Real permissions/questions/messages map to exact live requests.",
+        "Conformance plus native Windows tests pass.",
+        "Profile/backend boundaries and version detection are enforced.",
+        "Local and remote responses both remain usable."
+      ]
+    },
+    {
+      "key": "C11",
+      "title": "Integrate Codex with native-terminal parity",
+      "type": "task",
+      "priority": 1,
+      "parent": "C00",
+      "depends_on": [
+        "C05",
+        "C08",
+        "C09"
+      ],
+      "scope": "Existing Codex owner; consume shared contract.",
+      "description": "Implement or investigate the bounded scope below under docs/companion/SPEC.md. Read the actual pinned source before naming paths. Coordinate shared owners and preserve native desktop/phone control.\n\nScope: Existing Codex owner; consume shared contract.",
+      "acceptance": [
+        "Native Windows feasibility is resolved before claiming support.",
+        "Same active thread/runtime, no resumed second process or forced takeover.",
+        "Conformance and real request/draft/race tests pass.",
+        "Unsupported versions are rejected explicitly."
+      ]
+    },
+    {
+      "key": "C12",
+      "title": "Integrate Claude with native-terminal parity",
+      "type": "task",
+      "priority": 1,
+      "parent": "C00",
+      "depends_on": [
+        "C06",
+        "C08",
+        "C09"
+      ],
+      "scope": "Existing Claude terminal/hooks owner; consume shared contract.",
+      "description": "Implement or investigate the bounded scope below under docs/companion/SPEC.md. Read the actual pinned source before naming paths. Coordinate shared owners and preserve native desktop/phone control.\n\nScope: Existing Claude terminal/hooks owner; consume shared contract.",
+      "acceptance": [
+        "Local permission/cancel remains available during remote wait.",
+        "Questions and ordinary messages are not interpreted as permission grants.",
+        "Conformance and native Windows tests pass with preserved desktop draft.",
+        "Hook timeout/error behavior never silently allows."
+      ]
+    },
+    {
+      "key": "C13",
+      "title": "Implement bounded reconnect and request reconciliation",
+      "type": "task",
+      "priority": 1,
+      "parent": "C00",
+      "depends_on": [
+        "C02",
+        "C07",
+        "C09"
+      ],
+      "scope": "Existing connector/relay sync owner.",
+      "description": "Implement or investigate the bounded scope below under docs/companion/SPEC.md. Read the actual pinned source before naming paths. Coordinate shared owners and preserve native desktop/phone control.\n\nScope: Existing connector/relay sync owner.",
+      "acceptance": [
+        "Reconnect refreshes authoritative pending state with delivery deduplication.",
+        "Old generations/expired approvals cannot replay after downtime.",
+        "Local agent continuity survives connector/relay failures.",
+        "Lost acknowledgement returns indeterminate until reconciled, not blind retry."
+      ]
+    },
+    {
+      "key": "C14",
+      "title": "Build Android attention inbox and guarded responses",
+      "type": "task",
+      "priority": 1,
+      "parent": "C00",
+      "depends_on": [
+        "C02",
+        "C07"
+      ],
+      "scope": "Existing mobile UI, action and authentication owners.",
+      "description": "Implement or investigate the bounded scope below under docs/companion/SPEC.md. Read the actual pinned source before naming paths. Coordinate shared owners and preserve native desktop/phone control.\n\nScope: Existing mobile UI, action and authentication owners.",
+      "acceptance": [
+        "Pending items show unambiguous machine/project/provider identity.",
+        "Question/permission/message flows remain distinct and accessible.",
+        "Resolved/stale/indeterminate states are represented accurately.",
+        "No sensitive notification preview by default."
+      ]
+    },
+    {
+      "key": "C15",
+      "title": "Provision isolated fork Android and push development identity",
+      "type": "task",
+      "priority": 1,
+      "parent": "C00",
+      "depends_on": [
+        "C01",
+        "C07"
+      ],
+      "scope": "Build/config owner; human credentials/signing gate.",
+      "description": "Implement or investigate the bounded scope below under docs/companion/SPEC.md. Read the actual pinned source before naming paths. Coordinate shared owners and preserve native desktop/phone control.\n\nScope: Build/config owner; human credentials/signing gate.",
+      "acceptance": [
+        "Use fork-owned application ID, Expo/EAS project, signing/update channels and push configuration.",
+        "No credentials or private keystores committed.",
+        "Development relay and analytics destinations are explicit.",
+        "Physical-device build provenance is recorded."
+      ]
+    },
+    {
+      "key": "C16",
+      "title": "Demonstrate first OpenCode phone-to-native-terminal slice",
+      "type": "task",
+      "priority": 1,
+      "parent": "C00",
+      "depends_on": [
+        "C10",
+        "C13",
+        "C14",
+        "C15"
+      ],
+      "scope": "Integrated demo owner across reviewed boundaries.",
+      "description": "Implement or investigate the bounded scope below under docs/companion/SPEC.md. Read the actual pinned source before naming paths. Coordinate shared owners and preserve native desktop/phone control.\n\nScope: Integrated demo owner across reviewed boundaries.",
+      "acceptance": [
+        "Physical Android notification opens actual pending OpenCode request.",
+        "Response resolves original live request and desktop terminal continues.",
+        "Desktop-first and stale-notification cases pass.",
+        "Evidence names loaded revision and provider/device versions."
+      ]
+    },
+    {
+      "key": "C17",
+      "title": "Verify three providers across multiple desktops",
+      "type": "task",
+      "priority": 1,
+      "parent": "C00",
+      "depends_on": [
+        "C10",
+        "C11",
+        "C12",
+        "C13"
+      ],
+      "scope": "Integration/routing test owner.",
+      "description": "Implement or investigate the bounded scope below under docs/companion/SPEC.md. Read the actual pinned source before naming paths. Coordinate shared owners and preserve native desktop/phone control.\n\nScope: Integration/routing test owner.",
+      "acceptance": [
+        "At least two desktops with concurrent sessions and repeated project names.",
+        "Machine/backend/session/run scoping prevents cross-routing.",
+        "All three providers tested against declared compatibility matrix.",
+        "Host sleep/offline state is truthful and local execution is not migrated."
+      ]
+    },
+    {
+      "key": "C18",
+      "title": "Run adversarial stale-response and failure validation",
+      "type": "task",
+      "priority": 1,
+      "parent": "C00",
+      "depends_on": [
+        "C16",
+        "C17"
+      ],
+      "scope": "Independent security/reliability review.",
+      "description": "Implement or investigate the bounded scope below under docs/companion/SPEC.md. Read the actual pinned source before naming paths. Coordinate shared owners and preserve native desktop/phone control.\n\nScope: Independent security/reliability review.",
+      "acceptance": [
+        "Exercise races, duplicate taps, replay, wrong session, restarts and lost ack.",
+        "Untrusted terminal text cannot manufacture trusted approvals.",
+        "Kill only owned connector fixtures and verify native session continuity.",
+        "Unsafe defects block the pilot."
+      ]
+    },
+    {
+      "key": "C19",
+      "title": "Validate Android Doze, notification denial and revocation",
+      "type": "task",
+      "priority": 1,
+      "parent": "C00",
+      "depends_on": [
+        "C16"
+      ],
+      "scope": "Physical Android QA plus device-auth owner.",
+      "description": "Implement or investigate the bounded scope below under docs/companion/SPEC.md. Read the actual pinned source before naming paths. Coordinate shared owners and preserve native desktop/phone control.\n\nScope: Physical Android QA plus device-auth owner.",
+      "acceptance": [
+        "Record real locked/background/Doze delivery and app reconciliation.",
+        "Denied/lost notifications do not hide pending requests after app open.",
+        "Revoked device cannot send an accepted decision.",
+        "No confidential lock-screen or push payload leakage."
+      ]
+    },
+    {
+      "key": "C20",
+      "title": "Specify custom-agent capability adapter extension",
+      "type": "task",
+      "priority": 2,
+      "parent": "C00",
+      "depends_on": [
+        "C10",
+        "C11",
+        "C12"
+      ],
+      "scope": "Adapter contract extension after required providers are understood.",
+      "description": "Implement or investigate the bounded scope below under docs/companion/SPEC.md. Read the actual pinned source before naming paths. Coordinate shared owners and preserve native desktop/phone control.\n\nScope: Adapter contract extension after required providers are understood.",
+      "acceptance": [
+        "Define structured, lifecycle-only and terminal-only capability levels.",
+        "Document optional ACP and explicit limitations for arbitrary harnesses.",
+        "Provide fixture/example boundary without pretending universal prompt recognition.",
+        "Do not add Beads as a product runtime dependency."
+      ]
+    },
+    {
+      "key": "C21",
+      "title": "Harden optional Windows startup and health diagnostics",
+      "type": "task",
+      "priority": 2,
+      "parent": "C00",
+      "depends_on": [
+        "C09",
+        "C18"
+      ],
+      "scope": "Native launcher/service and health reporting owner.",
+      "description": "Implement or investigate the bounded scope below under docs/companion/SPEC.md. Read the actual pinned source before naming paths. Coordinate shared owners and preserve native desktop/phone control.\n\nScope: Native launcher/service and health reporting owner.",
+      "acceptance": [
+        "Optional auto-start reports daemon initialized and persistent health separately from OS start request.",
+        "Warning-vs-failure regressions pass under declared native PowerShell/runtime versions.",
+        "Logs are useful and redacted; recovery avoids deleting auth/session state.",
+        "Manual attended mode remains available without service installation."
+      ]
+    },
+    {
+      "key": "C22",
+      "title": "Enable safe fork-only CI and review gates",
+      "type": "task",
+      "priority": 1,
+      "parent": "C00",
+      "depends_on": [
+        "C01"
+      ],
+      "scope": "Coordinator/root workflow owner.",
+      "description": "Implement or investigate the bounded scope below under docs/companion/SPEC.md. Read the actual pinned source before naming paths. Coordinate shared owners and preserve native desktop/phone control.\n\nScope: Coordinator/root workflow owner.",
+      "acceptance": [
+        "Audit all inherited publish/deploy/release/bot/update jobs before enabling Actions.",
+        "Add least-privilege test lanes for relevant owners and native Windows.",
+        "Keep secrets/live provider tests off untrusted PRs and require a human release gate.",
+        "Document fork base branch/rules and scoped ownership."
+      ]
+    },
+    {
+      "key": "C23",
+      "title": "Review and approve the first terminal-first pilot",
+      "type": "task",
+      "priority": 1,
+      "parent": "C00",
+      "depends_on": [
+        "C18",
+        "C19",
+        "C21",
+        "C22"
+      ],
+      "scope": "Human-reviewed pilot gate; no automatic publication.",
+      "description": "Implement or investigate the bounded scope below under docs/companion/SPEC.md. Read the actual pinned source before naming paths. Coordinate shared owners and preserve native desktop/phone control.\n\nScope: Human-reviewed pilot gate; no automatic publication.",
+      "acceptance": [
+        "Run acceptance matrix on integrated revision across required providers/hosts/physical Android.",
+        "Document remaining limitations, compatible versions and recovery/rollback.",
+        "No unresolved unsafe approvals or connector-induced local session loss.",
+        "Ross approves deployment/distribution separately."
+      ]
+    }
+  ]
+}
