@@ -10,42 +10,44 @@ Dolt persistence is outside the Git worktree. Never put the live database in One
 
 ## Install and verify
 
+These are initial setup commands, not a session-start checklist. Reuse an existing verified workspace/server; do not reinstall or initialize it when resuming. On native PowerShell use `bd.cmd` (and `npm.cmd` when installation is approved) so execution policy does not select the PowerShell shim. Do not change execution policy to run a shim.
+
 ```powershell
-npm install -g @beads/bd@1.3.1
-bd version
+npm.cmd install -g @beads/bd@1.3.1
+bd.cmd version
 ```
 
-Install the official **Dolt 2.2.0 Windows release** and place `dolt.exe` on PATH. The release and installation links are in `SOURCES.md`. Verify the distributed artifact using available official checksum/signature information before running it. Do not use a random mirror, an unpinned latest installer, or a source build as the default workaround.
+Install the official **Dolt 2.2.0 Windows release** with approval. The release and installation links are in `SOURCES.md`. Verify the distributed artifact using available official checksum/signature information before running it. Set `$DoltExe` to that verified executable's absolute path and invoke it explicitly when PATH resolves another version. A PATH version check does not establish the running server's version. Do not use a random mirror, an unpinned latest installer, or a source build as the default workaround.
 
 ```powershell
-dolt version
-bd init --help
-bd update --help
-bd heartbeat --help
+& $DoltExe version
+bd.cmd init --help
+bd.cmd update --help
+bd.cmd heartbeat --help
 ```
 
 ## Run the database visibly first
 
-In a dedicated PowerShell terminal:
+For a new setup only, in a dedicated PowerShell terminal with `$DoltExe` set as above:
 
 ```powershell
 $DoltData = Join-Path $HOME '.terminal-companion-dev\dolt'
 New-Item -ItemType Directory -Force $DoltData | Out-Null
 Set-Location $DoltData
-dolt sql-server --host 127.0.0.1 --port 3307
+& $DoltExe sql-server --host 127.0.0.1 --port 3308
 ```
 
-Keep that terminal open during development. If port 3307 is occupied, do not kill the other process: choose a free loopback port and use that same port in every client. Do not expose this root/default development server to your LAN or the internet. Loopback-only development trusts local OS users; it is not a multi-tenant secure database deployment.
+Keep that terminal open during development. The audited workspace uses port 3308; when resuming, read its metadata and reuse the verified server rather than starting another one. For a new setup, if the chosen port is occupied, do not kill the other process: choose a free loopback port and use that same port in every client. Do not expose this root/default development server to your LAN or the internet. Loopback-only development trusts local OS users; it is not a multi-tenant secure database deployment.
 
 In the integration checkout, initialize ONCE, after confirming no unrelated `.beads` exists:
 
 ```powershell
 $env:BEADS_ACTOR = 'ross-coordinator'
 git config beads.role maintainer
-bd init --server --external --server-host 127.0.0.1 --server-port 3307 --database terminal_companion --prefix tc --skip-agents --skip-hooks
-bd where
-bd doctor
-bd ready --json
+bd.cmd init --server --external --server-host 127.0.0.1 --server-port 3308 --database terminal_companion --prefix tc --skip-agents --skip-hooks
+bd.cmd where
+bd.cmd doctor
+bd.cmd ready --json
 ```
 
 If an existing workspace is found, stop and inspect it. Do not add `--force`, delete state, or silently migrate it. `maintainer` here describes your role in your OWN fork, not permission on upstream.
@@ -55,8 +57,8 @@ The two skip flags avoid unrelated instruction and Git-hook mutations during ini
 ## Install the Codex integration deliberately
 
 ```powershell
-bd setup codex
-bd setup codex --check
+bd.cmd setup codex
+bd.cmd setup codex --check
 git diff -- AGENTS.md .codex .agents
 git status --short
 ```
@@ -70,7 +72,7 @@ Git hooks are optional at this stage. If you install them later, inspect the exi
 ```powershell
 node tools/companion/seed-beads.mjs --dry-run
 node tools/companion/seed-beads.mjs --apply
-bd ready --json
+bd.cmd ready --json
 ```
 
 Only the coordinator runs the seeder, while other workers are paused. It checks the CLI version and the expected `tc` prefix, uses a local exclusive lock, then creates tasks in dependency order with stable external references. Re-running resumes after a partial failure and skips existing seed records. It never reopens or overwrites an existing task. It is not a cross-machine distributed lock and does not reconcile a changed seed file. Once imported, edit tasks through Beads rather than expecting seed changes to update them.
@@ -81,16 +83,16 @@ The returned ID map is written to ignored `.companion-local/beads-seed-map.json`
 
 ```powershell
 $env:BEADS_ACTOR = 'ross-desktop1-codex-opencode'
-bd where
-bd prime
-bd ready --json
-bd show tc-REPLACE --json
-bd update tc-REPLACE --claim --json
-bd heartbeat tc-REPLACE
-bd comments add tc-REPLACE 'Branch agent/opencode-spike; native Windows spike; agreed scope recorded in task.'
+bd.cmd --sandbox where
+bd.cmd --sandbox prime
+bd.cmd --sandbox ready --json
+bd.cmd --sandbox show tc-REPLACE --json
+bd.cmd --sandbox update tc-REPLACE --claim --json
+bd.cmd --sandbox heartbeat tc-REPLACE
+bd.cmd --sandbox comments add tc-REPLACE 'Branch agent/opencode-spike; native Windows spike; agreed scope recorded in task.'
 ```
 
-Replace the issue ID with the real value. Stop if claim or heartbeat fails. The documented claim lease default is five minutes in the targeted release; inspect the actual configuration and heartbeat more frequently. Run heartbeat at checkpoints and around long commands. For longer unattended actions, arrange an explicitly supervised heartbeat or pause the worker; do not keep a detached heartbeat alive forever after its worker dies.
+Replace the issue ID with the real value. Beads' `--sandbox` disables automatic Dolt pushes; it does not replace Codex filesystem/network controls. Stop if claim or heartbeat fails. The documented claim lease default is five minutes in the targeted release; inspect the actual configuration and heartbeat more frequently. Run heartbeat at checkpoints and around long commands. For longer unattended actions, arrange an explicitly supervised heartbeat or pause the worker; do not keep a detached heartbeat alive forever after its worker dies.
 
 Initially do NOT automate `bd reclaim`. Before reassignment, the coordinator verifies that the old writer has stopped, preserves its branch/changes, and uses the supported unclaim/reassignment path. Expiry is not process fencing. Beads cannot physically prevent an old Codex process from editing its files.
 

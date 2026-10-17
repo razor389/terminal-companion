@@ -22,12 +22,21 @@ Choose a branch for one task, not a permanent all-purpose agent branch. A new te
 ```powershell
 Set-Location "$HOME\projects\terminal-companion-wt\opencode"
 $env:BEADS_ACTOR = 'ross-desktop1-codex-opencode'
-bd where
-bd prime
-codex --sandbox workspace-write --ask-for-approval on-request -c project_doc_max_bytes=131072
+bd.cmd --sandbox where
+bd.cmd --sandbox prime
+codex.cmd --sandbox workspace-write --ask-for-approval on-request -c project_doc_max_bytes=131072
 ```
 
 Paste `prompts/01-worker.md` with the actual Beads ID and approved path scope. The worker claims the task itself; the coordinator should not claim it under a different identity and then leave the worker unable to use it.
+
+For a noninteractive worker, the installed Codex CLI supports an explicit working root. From its worktree, set the unique actor as above and provide a self-contained approved brief:
+
+```powershell
+$WorkerPath = (Get-Location).Path
+Get-Content '.companion-local\worker-brief.md' -Raw | codex.cmd --ask-for-approval on-request exec -C $WorkerPath --sandbox workspace-write -c project_doc_max_bytes=131072 -
+```
+
+Keep the process/session handle and its output for review and resumption. Existing worktrees do not need `--worktree`; `--add-dir` grants access rather than choosing the working root. Built-in subagents that share the coordinator's directory are suitable for read-only review, not independent writing. If the execution frontend cannot service a permission request, return the exact blocked operation to the coordinator; do not bypass sandbox or hook-trust controls.
 
 `BEADS_ACTOR` is a task-tracker actor, not your Git author identity or an authentication boundary. Keep real human Git identity. Do not copy personal authentication into the repo.
 
