@@ -353,6 +353,8 @@ Before finalizing:
 
 This is an explicitly requested terminal-first fork, not a generic orchestration rewrite. Read `docs/companion/README.md`, `SPEC.md`, and `SECURITY.md` before planning product changes. Preserve the upstream engineering constitution and applicable nested instructions. These fork-specific requirements are approved scope where upstream product goals differ; they do not waive security, test, attribution, or execution rules. Flag any remaining conflict rather than silently ignoring either set of instructions.
 
+Terminal Companion develops on its pinned upstream baseline and integrates through `companion/main`. The inherited Happier 0.2 → 0.3 forward-port obligation does not apply to this fork's changes. Do not create or require a separate upstream successor checkout for routine fork work. A future baseline migration is a separate architectural decision; this exception does not waive current-source validation or compatibility requirements. See `docs/companion/README.md` for the decision basis.
+
 ### Non-negotiable product requirements
 
 - Native **Claude Code, Codex, and OpenCode** are all first-class targets. Running their models through another harness is not equivalent.
