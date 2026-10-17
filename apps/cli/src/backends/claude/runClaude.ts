@@ -25,7 +25,7 @@ import {
     persistClaudeEndpointStateBestEffort,
     resolveClaudeAdoptEndpointRecovery,
 } from '@/backends/claude/endpointRecovery/claudeEndpointRecovery';
-import { startHookServer, type PermissionHookData, type SessionHookData } from '@/backends/claude/utils/startHookServer';
+import { startHookServer, type SessionHookData } from '@/backends/claude/utils/startHookServer';
 import { createClaudeStatuslineApplier } from '@/backends/claude/statusline/applyClaudeStatuslineUpdate';
 import { cleanupHookPluginDir, cleanupHookSettingsFile } from '@/backends/claude/utils/generateHookSettings';
 import {
@@ -62,7 +62,7 @@ import { adoptReasoningEffortOverrideFromMetadata } from './utils/adoptReasoning
 import { adoptUltracodeOverrideFromMessageMeta, adoptUltracodeOverrideFromMetadata } from './utils/adoptUltracodeOverride';
 import { resolveSessionModeOverrideFromMetadataSnapshot } from '@/agent/runtime/permission/permissionModeFromMetadata';
 import { initializeBackendApiContext } from '@/agent/runtime/initializeBackendApiContext';
-import { ClaudeLocalPermissionBridge, DEFAULT_LOCAL_PERMISSION_HOOK_RESPONSE } from '@/backends/claude/localPermissions/localPermissionBridge';
+import { ClaudeLocalPermissionBridge } from '@/backends/claude/localPermissions/localPermissionBridge';
 import { formatErrorForUi } from '@/ui/formatErrorForUi';
 import { computeRunnerTerminationOutcome, type RunnerTerminationEvent } from '@/agent/runtime/runnerTerminationOutcome';
 import { registerRunnerTerminationHandlers } from '@/agent/runtime/runnerTerminationHandlers';
@@ -111,19 +111,7 @@ import type { SessionRuntimeActivityContributionHandle } from '@/session/runtime
 import type { RuntimeActivityApplicability } from '@/session/runtimeActivity/types';
 import { createClaudeProviderRuntimeActivityBindingOwner } from './providerActivity/createClaudeProviderRuntimeActivityAdapter';
 import { createPendingFirstInputCommitter } from '@/daemon/spawn/pendingFirstInput';
-
-type ClaudePermissionLifecycleHookEventName = 'PermissionRequest' | 'PermissionRequestCompleted';
-
-function buildPermissionLifecycleSessionHook(
-    data: PermissionHookData,
-    hookEventName: ClaudePermissionLifecycleHookEventName,
-): SessionHookData {
-    return {
-        ...data,
-        hook_event_name: hookEventName,
-        hookEventName,
-    };
-}
+import { handlePermissionHookWithLifecycle } from './localPermissions/handlePermissionHookWithLifecycle';
 
 function routeClaudeSessionHookAtCallerBoundary(params: Readonly<{
     session: Pick<import('./session').Session, 'onSessionFound' | 'onClaudeSessionHook'>;
@@ -743,13 +731,6 @@ export async function runClaude(credentials: Credentials, options: StartOptions 
         localPermissionBridge = new ClaudeLocalPermissionBridge(currentSession, { responseTimeoutMs: localPermissionBridgeTimeoutMs });
         localPermissionBridge.activate();
     };
-    const publishPermissionLifecycleHook = (
-        data: PermissionHookData,
-        hookEventName: ClaudePermissionLifecycleHookEventName,
-    ) => {
-        currentSession?.onClaudeSessionHook(buildPermissionLifecycleSessionHook(data, hookEventName));
-    };
-
     // Start Hook server for receiving Claude session notifications
     const statuslineApplier = createClaudeStatuslineApplier({ logPrefix: '[claude]' });
     const hookServerOptions: Parameters<typeof startHookServer>[0] = {
@@ -786,15 +767,11 @@ export async function runClaude(credentials: Credentials, options: StartOptions 
             logger.debug(
                 `[START] Permission hook received: tool=${hookTool} id=${hookId || 'unknown'} bridge=${localPermissionBridgeEnabled ? 'enabled' : 'disabled'}`,
             );
-            publishPermissionLifecycleHook(data, 'PermissionRequest');
-            try {
-                if (!localPermissionBridgeEnabled || !localPermissionBridge) {
-                    return DEFAULT_LOCAL_PERMISSION_HOOK_RESPONSE;
-                }
-                return localPermissionBridge.handlePermissionHook(data);
-            } finally {
-                publishPermissionLifecycleHook(data, 'PermissionRequestCompleted');
-            }
+            return handlePermissionHookWithLifecycle({
+                data,
+                bridge: localPermissionBridgeEnabled ? localPermissionBridge : null,
+                onSessionHook: (hook) => currentSession?.onClaudeSessionHook(hook),
+            });
         },
         permissionHookSecret,
         permissionRequestTimeoutMs: localPermissionBridgeWaitIndefinitely ? null : localPermissionBridgeTimeoutMs,
@@ -1637,13 +1614,6 @@ async function runClaudeLocalFastStart(credentials: Credentials, options: StartO
         localPermissionBridge = new ClaudeLocalPermissionBridge(currentSession, { responseTimeoutMs: localPermissionBridgeTimeoutMs });
         localPermissionBridge.activate();
     };
-    const publishPermissionLifecycleHook = (
-        data: PermissionHookData,
-        hookEventName: ClaudePermissionLifecycleHookEventName,
-    ) => {
-        currentSession?.onClaudeSessionHook(buildPermissionLifecycleSessionHook(data, hookEventName));
-    };
-
     const statuslineApplier = createClaudeStatuslineApplier({ logPrefix: '[claude]' });
     const hookServerOptions: Parameters<typeof startHookServer>[0] = {
         onStatuslineUpdate: (payload) => {
@@ -1663,15 +1633,11 @@ async function runClaudeLocalFastStart(credentials: Credentials, options: StartO
             }
         },
         onPermissionHook: async (data) => {
-            publishPermissionLifecycleHook(data, 'PermissionRequest');
-            try {
-                if (!localPermissionBridgeEnabled || !localPermissionBridge) {
-                    return DEFAULT_LOCAL_PERMISSION_HOOK_RESPONSE;
-                }
-                return localPermissionBridge.handlePermissionHook(data);
-            } finally {
-                publishPermissionLifecycleHook(data, 'PermissionRequestCompleted');
-            }
+            return handlePermissionHookWithLifecycle({
+                data,
+                bridge: localPermissionBridgeEnabled ? localPermissionBridge : null,
+                onSessionHook: (hook) => currentSession?.onClaudeSessionHook(hook),
+            });
         },
         permissionHookSecret,
         permissionRequestTimeoutMs: localPermissionBridgeWaitIndefinitely ? null : localPermissionBridgeTimeoutMs,
