@@ -1,8 +1,8 @@
 # Compatibility evidence
 
-Bootstrap assessment dated **2026-10-16**, Beads **tc-ach.1**. Fork source: `eb943730622b4974eeb78d717290b7b4b914160e`; upstream pin: `cb5f427183391e8f65b8ffa7f1682e10d3a045f7`. See [REPO_AUDIT.md](REPO_AUDIT.md) for ownership, dependencies, commands and findings.
+Bootstrap assessment dated **2026-10-16**, Beads **tc-ach.1**, with provider research updated **2026-10-17** in **tc-ach.5/.6**. Audited fork source: `eb943730622b4974eeb78d717290b7b4b914160e`; research source: `740cef4994300368a05d19f00919955483b9925f`; upstream pin: `cb5f427183391e8f65b8ffa7f1682e10d3a045f7`. See [REPO_AUDIT.md](REPO_AUDIT.md) for the baseline and [CODEX_WINDOWS.md](CODEX_WINDOWS.md) / [CLAUDE_WINDOWS.md](CLAUDE_WINDOWS.md) for subsequent evidence and commands.
 
-**No provider is certified for the Terminal Companion desktop/Android contract.** Version/help probes and source inspection are observations; none substitutes for same-live-session evidence. Package suites could not run without dependencies/Yarn; the executed dependency-free Windows baseline had two failures. The current Windows service renderer passed its isolated warning/exit-code experiment.
+**No provider is certified for the Terminal Companion desktop/Android contract.** The later native Windows Codex probe passed two-client transport and survival after one owned proxy was terminated; it created no thread or native TUI. Claude's actual hook forwarder passed four isolated transport cases. The focused package slices recorded **Codex: 9 passed, 1 failed, 4 Windows-skipped; Claude: 68 passed**. Both CLI typechecks passed. These results do not replace native terminal/phone evidence. The bootstrap baseline still has its two recorded failures; the Windows service renderer passed its isolated warning/exit-code experiment.
 
 This document follows [templates/COMPATIBILITY.md](templates/COMPATIBILITY.md). It records a development source assessment, not a claim about shipped Happier or a supported provider-version range. Beads remains the live task tracker.
 
@@ -12,33 +12,37 @@ Integration review classified both baseline failures as inherited upstream POSIX
 
 | Provider | Native CLI version | Backend/transport observed in source | Host OS/shell/terminal | Fork commit | Native TUI + phone permission | Questions/messages | Desktop-first race | Status/evidence |
 |---|---|---|---|---|---|---|---|---|
-| Codex | **0.160.0**, `codex.cmd --version` | App Server; shared Unix WebSocket route; separate stdio and daemon-proxy routes | Windows 10.0.26200 / PowerShell 5.1.26100.9711; interactive terminal host unverified | `eb943730622b4974eeb78d717290b7b4b914160e` | Not run; source disables shared control on win32 | Not run; requestUserInput and ordinary input paths exist | Not run; source handles `serverRequest/resolved` with thread/client-generation checks | **BLOCKED for this pin's Windows shared path**. `apps/cli/src/backends/codex/localControl/resolveCodexSharedControlSupport.ts`; `appServer/runtime.ts`; tc-ach.5/.11 |
-| Claude Code | **2.1.299**, `claude --version` | Opt-in unified native terminal, permission/question hooks, guarded terminal input; SDK/exclusive paths also exist | Same Windows/PowerShell host; required terminal adapter unverified | Same fork commit | Not run; a waiting hook's concurrent native answer/cancel path unverified | Not run; structured answers and draft guard exist | Not run | **UNVERIFIED**. `apps/cli/src/backends/claude/localPermissions/localPermissionBridge.ts`, `unifiedTerminal/`, `remote/claudeRemoteMetaState.ts`; tc-ach.6/.12 |
-| OpenCode | **Unknown**, not found on PATH | Default server backend, attached native TUI; V1/V2 client/CLI dialects; ACP alternative | Native Windows required; executable/terminal unverified | Same fork commit | Not run | Not run; native permission/question/form client operations exist | Not run | **UNVERIFIED**, reference candidate only. `apps/cli/src/backends/opencode/runOpenCode.ts`, `server/client.ts`, `localControl/`; tc-ach.4/.10 |
+| Codex | **0.160.0**, `codex.cmd --version` | Existing App Server owners; disposable probe demonstrated WebSocket over explicit native proxy pipes to one Unix listener | Windows 10.0.26200 / PowerShell 5.1.26100.9711; interactive terminal host unverified | `740cef4994300368a05d19f00919955483b9925f` | Not run; source disables shared control on win32 | Not run; requestUserInput and ordinary input paths exist | Not run; source handles `serverRequest/resolved` with thread/client-generation checks | **TRANSPORT ONLY; native product gate BLOCKED**. [Native evidence and production gaps](CODEX_WINDOWS.md); tc-ach.5/.11 |
+| Claude Code | **2.1.299**, `claude --version` | Opt-in unified native terminal, permission/question hooks, guarded terminal input; SDK/exclusive paths also exist | Same Windows/PowerShell host; auto selects existing `windows_console` PTY in source, native run unverified | Research source above | Not run; a waiting hook's concurrent native answer/cancel path unverified | Not run; structured answers and draft guard have focused host coverage | Not run | **UNVERIFIED native contract**. [Hook, draft and configuration findings](CLAUDE_WINDOWS.md); tc-ach.6/.12 |
+| OpenCode | **Unknown**, not found on PATH during audit | Default server backend, attached native TUI; V1/V2 client/CLI dialects; ACP alternative | Native Windows required; executable/terminal unverified | Audited fork source above | Not run | Not run; native permission/question/form client operations exist | Not run | **UNVERIFIED**, reference candidate only. `apps/cli/src/backends/opencode/runOpenCode.ts`, `server/client.ts`, `localControl/`; tc-ach.4/.10 |
 
 The Codex source minimum for non-Windows shared control is 0.131.0; this is an implementation gate, **not** a tested support range. Its Windows rejection applies even to the installed 0.160.0. Official App Server documentation and installed help expose other transports, but none was exercised with a native terminal here. Do not call an authenticated handshake alone a compatibility pass.
 
-OpenCode must be pinned independently for server API, attached CLI dialect and permissions/form semantics. V1 documentation is not proof of V2 behavior. Claude SDK package versions are separate from the native Claude executable version. No provider configuration, credential, plugin, process or existing session was inspected or changed beyond version/help commands.
+OpenCode must be pinned independently for server API, attached CLI dialect and permissions/form semantics. V1 documentation is not proof of V2 behavior. Claude SDK package versions are separate from the native Claude executable version. The later probes used owned disposable processes, synthetic hook data and isolated configuration. Existing user credentials, configuration, plugins, daemons and sessions were not inspected or changed.
+
+The Codex test failure is another inherited POSIX path expectation at `createCodexSharedAppServer.test.ts:174`, tracked in **tc-ach.29**; the four Windows startup skips remain unexecuted. Node socket `stat` returned `EACCES` even outside the worker sandbox, while the native proxy connected successfully. Its pinned implementation copies raw bytes, so adding `--sock` to the existing JSONL client is insufficient. Production readiness, framing and shutdown need owner-level implementation and validation before changing the Windows guard.
+
+Claude research identified premature `PermissionRequestCompleted` publication in both `runClaude.ts` callbacks, tracked in **tc-ach.28**. The real lifecycle consumer can clear input blocking before the permission promise settles; this is not an observed unsafe native write. Missing HTTP cancellation propagation, transcript-based ID reuse, provider application acknowledgement and A20 launch-policy differences remain separate native/security obligations.
 
 ## Component and environment identity
 
 | Component | Observed version or state | Compatibility implication |
 |---|---|---|
 | CLI / server / UI source manifests | 0.2.16 / 0.2.16 / 0.2.17 | No loaded product build or deployed release established |
-| Node / npm / Corepack | 22.14.0 / 10.9.2 / 0.31.0 | Native Windows dependency-free tests ran; Yarn is not cached |
-| Yarn / dependencies | Pin 1.22.22; no root node_modules | Package test/typecheck/build evidence unavailable |
+| Node / npm / Corepack | 22.14.0 / 10.9.2 / 0.31.0 | Native Windows baseline and focused package tests ran |
+| Yarn / dependencies | Pin 1.22.22; frozen, separate worker installs and integration-checkout install, unchanged lockfile | Focused evidence above; integration install exited 0 with optional Redis binary extraction failure, so Redis-dependent lanes are not certified |
 | Expo / React Native / notifications | Manifest ranges ^54.0.0 / 0.81.5 / ~0.32.11 | No Android build, SDK or notification delivery tested |
 | Android app package/build | None loaded; source defaults remain `dev.happier.app*` and upstream Expo identity | Fork-owned development identity required before install/push QA |
 | Android physical device/OS | Not supplied or examined | Doze, lock screen, denial, revocation and background recovery all unverified |
 | Development relay | Not provisioned or contacted | No product authentication, encryption or RPC end-to-end test |
 | Second desktop | Not supplied or examined | Cross-machine routing unverified |
-| Beads / Dolt | Beads 1.3.1; PATH Dolt 1.86.1; actual loopback server 2.2.0 | Development tooling only; tc-ach.25 tracks data location, routing, backups and shared-worktree readiness |
+| Beads / Dolt | Beads 1.3.1; PATH Dolt 1.86.1; verified loopback server 2.2.0 | tc-ach.25 verified external data authority, shared-worktree routing, atomic claim rejection and local backup/restore; development tooling only |
 
 No live acceptance trace exists. Sanitized baseline output is `.companion-local/tc-ach.1/baseline-tests.log`; native wrapper logs are `.companion-local/tc-ach.1/windows-warning-lyqKwi/`. These ignored files are machine-local supporting evidence, not release artifacts. Future live runs must record every runtime/device/relay identity required by [ACCEPTANCE.md](ACCEPTANCE.md).
 
 ## Product acceptance disposition
 
-For rows marked BLOCKED, the blocker is missing authorized live fixtures/tooling or the specifically identified implementation gap. It is not evidence that the provider can never support the capability. Existing tests below were inspected, not executed, unless stated otherwise.
+For rows marked BLOCKED, the blocker is missing authorized live fixtures/tooling or the specifically identified implementation gap. It is not evidence that the provider can never support the capability. Only the focused suites named above and in the provider records have execution evidence; adjacent suites remain unrun unless recorded separately.
 
 | Gate | Evidence available | Disposition and deciding next step |
 |---|---|---|
@@ -96,4 +100,4 @@ Primary local evidence is linked through [REPO_AUDIT.md](REPO_AUDIT.md). Current
 - [Claude hooks](https://code.claude.com/docs/en/hooks#permissionrequest): hook decisions and native error/cancellation semantics. The concurrent terminal/phone behavior still requires a native run.
 - [OpenCode server](https://docs.opencode.ai/docs/server/): client/server topology, authentication and API discovery. Pin installed V1/V2 behavior rather than treating this page as universal compatibility.
 
-Residual risk: provider races, independent connector failure, authenticated device revocation, physical Android delivery/privacy and two-desktop routing remain unmeasured. Review these documents and the two scoped worker assignments before implementation; separate authorization is still required for live credentials/costs, dependency bootstrap where applicable, protected auth/protocol changes, app signing and any publication.
+Residual risk: native provider races, independent connector failure, authenticated device revocation, physical Android delivery/privacy and two-desktop routing remain unmeasured. The reviewed research narrows the next experiments without certifying a provider. Human authorization remains required for live credentials/costs, protected auth/protocol changes, app signing and publication.
