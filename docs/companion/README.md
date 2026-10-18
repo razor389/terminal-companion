@@ -15,7 +15,7 @@ This folder records Ross's requested product and the proposed implementation str
 
 Use Beads for live task status, claims, blockers, and handoffs. `bootstrap-beads.json` is a one-time starting backlog, not a second tracker. Design decisions belong in reviewed documentation or ADRs. Code and tests belong in their existing upstream owners, not in this documentation folder.
 
-The [repository audit](REPO_AUDIT.md) and [compatibility evidence](COMPATIBILITY.md) establish the implementation basis. [REQUEST_PROTOCOL.md](REQUEST_PROTOCOL.md) proposes the shared interruption and device-trust contract; it requires human protocol/security approval before implementation.
+The [repository audit](REPO_AUDIT.md) and [compatibility evidence](COMPATIBILITY.md) establish the implementation basis. [REQUEST_PROTOCOL.md](REQUEST_PROTOCOL.md) records the approved device-trust direction and proposed shared interruption contract; detailed implementation, security review and native validation remain outstanding.
 
 ## Baseline policy
 
