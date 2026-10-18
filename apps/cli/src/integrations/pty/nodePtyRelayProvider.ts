@@ -25,7 +25,6 @@ type NodeRelaySpawnProcess = (
 ) => ChildProcessWithoutNullStreams;
 
 const relayWriteFramePrefix = '\u001eHAPPIER_PTY_WRITE ';
-const relayKillFallbackMs = 2_000;
 
 function normalizeArgs(args: string[] | string): string[] {
   return Array.isArray(args) ? [...args] : [String(args)];
@@ -62,48 +61,21 @@ function childToPtyProcess(child: ChildProcessWithoutNullStreams): PtyProcess {
   const exitListeners = new Set<(event: PtyExitEvent) => void>();
   let completedExit: PtyExitEvent | null = null;
   let relayInputClosed = false;
-  let killFallbackTimer: ReturnType<typeof setTimeout> | null = null;
 
   const emitExit = (event: PtyExitEvent) => {
     if (completedExit) return;
     completedExit = event;
-    if (killFallbackTimer) {
-      clearTimeout(killFallbackTimer);
-      killFallbackTimer = null;
-    }
     for (const listener of exitListeners) {
       listener(event);
     }
   };
 
-  const killRelayProcess = (signal?: string) => {
-    if (typeof signal === 'string' && signal.length > 0) {
-      child.kill(signal as NodeJS.Signals);
-      return;
-    }
-    child.kill();
-  };
-
-  const requestRelayTermination = (signal?: string) => {
+  const requestRelayTermination = () => {
+    if (isRelayInputClosed(child, relayInputClosed)) return;
     relayInputClosed = true;
-    if (child.stdin.destroyed === true || child.stdin.writableEnded === true) {
-      killRelayProcess(signal);
-      return;
-    }
-    try {
-      child.stdin.end();
-    } catch {
-      killRelayProcess(signal);
-      return;
-    }
-    if (!killFallbackTimer) {
-      killFallbackTimer = setTimeout(() => {
-        if (!completedExit) {
-          child.kill('SIGKILL');
-        }
-      }, relayKillFallbackMs);
-      killFallbackTimer.unref?.();
-    }
+    // EOF lets the relay clean up its native child and drain output. Killing
+    // the relay here (including on repeated requests) can interrupt either.
+    child.stdin.end();
   };
 
   child.once('error', () => {

@@ -270,7 +270,7 @@ describe('createNodePtyRelayProvider', () => {
     expect(() => pty.write('after input error')).toThrow('terminal_pty_input_closed');
   });
 
-  it('closes relay stdin before falling back to killing the relay process', () => {
+  it('closes relay stdin to request native child cleanup', () => {
     const fakeChild = createFakeChildProcess();
     const provider = createNodePtyRelayProvider({
       platform: 'win32',
@@ -292,7 +292,7 @@ describe('createNodePtyRelayProvider', () => {
     expect(() => pty.write('after kill requested')).toThrow('terminal_pty_input_closed');
   });
 
-  it('escalates relay termination with SIGKILL when stdin EOF does not close the relay', () => {
+  it('does not kill a relay still draining output after cancellation or repeated kill', () => {
     vi.useFakeTimers();
     try {
       const fakeChild = createFakeChildProcess();
@@ -310,9 +310,21 @@ describe('createNodePtyRelayProvider', () => {
       } satisfies PtySpawnParams);
 
       pty.kill();
-      vi.advanceTimersByTime(2_000);
+      pty.kill();
+      vi.advanceTimersByTime(10_000);
 
-      expect(fakeChild.kill).toHaveBeenCalledWith('SIGKILL');
+      expect(fakeChild.stdin.end).toHaveBeenCalledOnce();
+      expect(fakeChild.kill).not.toHaveBeenCalled();
+      const output: string[] = [];
+      const onExit = vi.fn();
+      pty.onData((data) => output.push(data));
+      pty.onExit(onExit);
+      fakeChild.stdout.emit('data', Buffer.from('slow final output'));
+      fakeChild.emit('exit', 7, null);
+      expect(onExit).not.toHaveBeenCalled();
+      fakeChild.emit('close', 7, null);
+      expect(output.join('')).toBe('slow final output');
+      expect(onExit).toHaveBeenCalledWith({ exitCode: 7 });
     } finally {
       vi.useRealTimers();
     }

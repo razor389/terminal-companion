@@ -81,18 +81,19 @@ function spawnPty(file, args, options) {
 const pty = spawnPty(file, childArgs, ptyOptions);
 
 let exiting = false;
+let nativeExitCode = null;
+let relayFailed = false;
+let cleanupStarted = false;
+let cleanupFinished = false;
+let pendingWrites = 0;
+let completed = false;
+const failedOutputs = new Set();
 let framedInputBuffer = '';
 let framedInputActive = false;
 
-function forwardSignal(signal) {
-  try {
-    pty.kill(signal);
-  } catch {
-    // best effort
-  }
-}
-
 function closeRelayInput() {
+  if (exiting) return;
+  exiting = true;
   process.stdin.off('data', onStdinData);
   process.stdin.off('end', onStdinEnd);
   process.stdin.pause();
@@ -101,21 +102,60 @@ function closeRelayInput() {
   }
 }
 
-function requestRelayExit(exitCode) {
-  if (exiting) return;
-  exiting = true;
-  process.exitCode = exitCode;
+function completeRelayIfDrained() {
+  if (completed || nativeExitCode === null || !cleanupFinished || pendingWrites !== 0) return;
+  completed = true;
+  // Disposable-relay mitigation for node-pty 1.1.0 retaining its ConPTY worker.
+  // Remove after dependency-owned disposal passes the Windows lifecycle/drainage
+  // gate in tc-ach.5.2.1. Never apply explicit completion to an in-process host.
+  process.exit(relayFailed ? 1 : nativeExitCode);
+}
+
+function requestPtyCleanup(signal) {
+  if (cleanupStarted) return;
+  cleanupStarted = true;
   closeRelayInput();
+  try {
+    // WindowsTerminal rejects nonempty signals; its supported kill is signal-less.
+    pty.kill(process.platform === 'win32' ? undefined : signal);
+  } catch (error) {
+    markRelayError(error);
+  } finally {
+    // kill may synchronously deliver onExit; do not complete inside that call.
+    cleanupFinished = true;
+  }
+  completeRelayIfDrained();
+}
+
+function handleOutputError(stream, error) {
+  if (failedOutputs.has(stream)) return;
+  failedOutputs.add(stream);
+  relayFailed = true;
+  process.exitCode = 1;
+  if (stream !== process.stderr) writeRelayOutput(process.stderr, `${describeError(error)}\n`);
+  requestPtyCleanup();
+}
+
+function writeRelayOutput(stream, data) {
+  if (failedOutputs.has(stream)) return;
+  pendingWrites += 1;
+  const onWritten = (error) => {
+    if (error) handleOutputError(stream, error);
+    pendingWrites -= 1;
+    completeRelayIfDrained();
+  };
+  try {
+    stream.write(data, onWritten);
+  } catch (error) {
+    onWritten(error);
+  }
 }
 
 function markRelayError(error) {
-  process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
-  requestRelayExit(1);
-  try {
-    pty.kill();
-  } catch {
-    // best effort
-  }
+  relayFailed = true;
+  process.exitCode = 1;
+  writeRelayOutput(process.stderr, `${describeError(error)}\n`);
+  requestPtyCleanup();
 }
 
 function writeToPty(data) {
@@ -136,7 +176,7 @@ function decodeRelayWriteFrame(line) {
 }
 
 function drainFramedInput() {
-  while (true) {
+  while (!exiting) {
     const newlineIndex = framedInputBuffer.indexOf('\n');
     if (newlineIndex === -1) return;
     const line = framedInputBuffer.slice(0, newlineIndex);
@@ -145,8 +185,10 @@ function drainFramedInput() {
   }
 }
 
-process.on('SIGINT', () => forwardSignal('SIGINT'));
-process.on('SIGTERM', () => forwardSignal('SIGTERM'));
+process.on('SIGINT', () => requestPtyCleanup('SIGINT'));
+process.on('SIGTERM', () => requestPtyCleanup('SIGTERM'));
+process.stdout.on('error', (error) => handleOutputError(process.stdout, error));
+process.stderr.on('error', (error) => handleOutputError(process.stderr, error));
 
 function onStdinData(chunk) {
   if (exiting) return;
@@ -175,20 +217,20 @@ function onStdinEnd() {
     markRelayError(new Error('node_pty_relay: incomplete write frame'));
     return;
   }
-  try {
-    pty.kill();
-  } catch {
-    // best effort
-  }
+  requestPtyCleanup();
 }
 
 process.stdin.on('data', onStdinData);
 process.stdin.on('end', onStdinEnd);
+process.stdin.on('error', markRelayError);
 
 pty.onData((data) => {
-  process.stdout.write(data);
+  writeRelayOutput(process.stdout, data);
 });
 
 pty.onExit((event) => {
-  requestRelayExit(typeof event.exitCode === 'number' ? event.exitCode : 1);
+  nativeExitCode = typeof event.exitCode === 'number' ? event.exitCode : 1;
+  if (!relayFailed) process.exitCode = nativeExitCode;
+  requestPtyCleanup();
+  completeRelayIfDrained();
 });

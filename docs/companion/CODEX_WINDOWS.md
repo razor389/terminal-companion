@@ -10,6 +10,29 @@ rerun exited 1: **9 passed, 1 failed, 4 Windows skips**. The failure is a
 pre-existing POSIX fixture assumption. CLI typecheck passed. Node socket `stat`
 still returned `EACCES` outside the worker sandbox; native proxy access succeeded.
 
+The subsequent no-credential TUI-fixture attempt stopped at **PTY lifecycle
+admission**: native `--version` printed through ConPTY, but the repository relay
+did not close, including after stdin EOF. A later direct-backend diagnostic
+observed native exit **0** and the PTY exit event, with the ConPTY output worker
+still alive after supported cleanup. A harmless Node child reproduced that
+retained-worker behavior. This isolates a backend resource-lifetime problem.
+The corrected production relay subsequently completed native exit-7 and Codex
+`--version` fixtures with exact final bytes and matching native/PTY/relay status.
+No model fixture or TUI session ran, and historical descendant cleanup is not certified.
+
+The **tc-ach.5.2** disposable-relay mitigation is **verified for the four bounded
+native Windows fixtures below**, pending final review and integration. The
+coordinator captured meaningful RED (**6 failed, 13 passed**) and then GREEN
+(**19 passed**). Review exposed a Windows signal-cleanup regression missed by
+that suite. Its separate asserting boundary fixture and the expanded **21-test**
+canonical slice now pass; CLI typecheck passed. Adjacent tests exited 1 with
+**46 passed, 3 pre-existing packaged-path fixture failures, 2 skipped**.
+Native exit-7, Codex version, drainage after a finite reader pause, and active-child
+EOF all passed. The original slow-reader experiment failed while requiring
+native exit before releasing its paused reader; that failed run and its historical
+cleanup uncertainty remain explicit. This verifies a disposable-relay mitigation,
+not dependency repair or native TUI shared control. **tc-ach.5.2.1** remains open.
+
 This is a development feasibility record, not a supported-version announcement
 or a negative proof about Codex. [SPEC.md](SPEC.md), [SECURITY.md](SECURITY.md), and
 [ACCEPTANCE.md](ACCEPTANCE.md) remain authoritative. Beads owns operational status
@@ -19,24 +42,31 @@ and the handoff. **tc-ach.26** holds the coordinator's transport evidence.
 
 | Evidence | Observed value |
 |---|---|
-| Worker source | `740cef4994300368a05d19f00919955483b9925f`, branch `agent/codex-spike` |
+| Worker source | Initial research `740cef4994300368a05d19f00919955483b9925f`; resumed at research-doc commit `e6eeaa4191d43be7dcc8849f01cf3f6a1839e1b9`, branch `agent/codex-spike` |
 | Worktree | `C:/Users/Raziel/projects/terminal-companion-wt/codex`; clean before research |
 | Upstream / audited source | `cb5f427183391e8f65b8ffa7f1682e10d3a045f7`; audit commit `88a8ddbbb388106a798209a3c3003b074896678c` |
 | Windows / shell | Windows `10.0.26200.0`, PowerShell `5.1.26100.9711`; native Windows, not WSL |
 | Installed CLI | npm `@openai/codex` **0.160.0**, Windows x64 native executable under its `@openai/codex-win32-x64` dependency |
+| PTY diagnostic | Installed `node-pty` **1.1.0**, Node **22.14.0**, `useConpty: true`, `useConptyDll: true` as in the repository relay |
 | Native contract | Local version/help, `app-server generate-json-schema --experimental`, and the `rust-v0.160.0` proxy source; schemas do not establish arbitration |
-| Product runtime | No loaded Companion runtime, Android build, relay, or second desktop |
+| Product runtime | Actual production PTY relay in disposable fixtures below; no launched Companion app/daemon, Android build, or second desktop |
 
-Only this document is intended for commit. No production behavior, permission,
-authentication, dependency, shared protocol, or configuration was changed. The
-Windows support guard remains intact. Disposable probe code, generated schemas,
+The initial research changed only this document. The later, explicitly granted
+relay correction changes the relay script/provider and their existing tests;
+its expanded 21-test slice and all four bounded native relay fixtures passed.
+The later evidence reconciliation changes only documentation. No permission, authentication,
+dependency, shared protocol, or configuration was changed. The Windows support
+guard remains intact. Disposable probe code, generated schemas,
 and logs live under ignored evidence directories; they are not shipped fixtures.
 Evidence paths below use **worker** for this worktree and **coordinator** for
 `C:/Users/Raziel/projects/terminal-companion`. Worker evidence is under
 `.companion-local/tc-ach.5/`; coordinator evidence is under
-`.companion-local/tc-ach.26/`. No provider credentials were read or copied, and no
-existing daemon or session was contacted. This reconciliation reads saved
-evidence; it reruns no tests, probes, or provider processes.
+`.companion-local/tc-ach.26/` for transport, or `.companion-local/tc-ach.5/` where
+named for relay review/baseline logs. No provider credentials were read or copied, and no
+existing daemon or session was contacted. The earlier doc reconciliation read
+saved evidence only. The later PTY admission and lifecycle diagnosis below ran
+native `--version` and a harmless owned child in fresh terminal fixtures; they
+reran no package tests or transport probe.
 
 ## Existing owners and the two candidates
 
@@ -134,7 +164,22 @@ The routed checks below use this prefix from the named checkout root:
 | `codex.cmd --version`; `codex.cmd --help`; `codex.cmd app-server --help`; `codex.cmd app-server proxy --help`; `codex.cmd app-server daemon --help`; `codex.cmd app-server generate-json-schema --help` | Exit 0; advertised interfaces only. No daemon-management action was invoked. |
 | `corepack.cmd yarn --cwd apps/cli vitest run --config vitest.config.ts src/backends/codex/localControl/resolveCodexSharedControlSupport.test.ts src/backends/codex/localControl/createCodexSharedLocalControl.test.ts src/backends/codex/appServer/createCodexSharedAppServer.test.ts` | **Exit 1 before collection.** esbuild: cannot read `../../../../..` (`Access is denied`) and cannot resolve the config. No passing/skipped test counts were produced. Raw output: `.companion-local/tc-ach.5/focused-tests.log`. |
 | Same focused Vitest command, coordinator rerun from worker root with scoped filesystem permission | **Exit 1: 9 passed, 1 failed, 4 skipped.** `createCodexSharedAppServer.test.ts:174` expects a POSIX endpoint from a Windows path fixture. Worker `coordinator-focused-tests.log`; details below. |
-| `corepack.cmd yarn workspace @happier-dev/cli typecheck` | **Exit 0**: declaration preparation and repository TypeScript invocation completed. Reused for this doc-only update; not rerun. |
+| `corepack.cmd yarn workspace @happier-dev/cli typecheck` | **Exit 0** initially, for the prepared regressions, against the implementation, and after the signal correction/new tests on 2026-10-18. Current log: worker `relay-typecheck-review-fix.log`; this does not establish runtime completion. Earlier implementation/prepared-test logs remain retained. |
+| `corepack.cmd yarn --cwd apps/cli vitest run --config vitest.config.ts src/integrations/pty/nodePtyRelayScript.test.ts src/integrations/pty/nodePtyRelayProvider.test.ts` | **Exit 1 before collection** on 2026-10-18: with the documented project caches, esbuild could not read an ancestor directory or load the config. Worker `relay-red-configured.log`; no meaningful RED or passing test counts. The preceding invocation lacked the cache environment and failed with Corepack `EPERM` (`relay-red.log`). |
+| Same relay regression command, coordinator execution of `run-relay-red.ps1` with scoped filesystem permission | **Exit 1: 6 failed, 13 passed, no skips.** Both suites collected against unchanged production files. Five relay failures cover missing completion, cleanup ordering, and cleanup diagnostics; the provider failure records both a plain kill and `SIGKILL` during repeated cancellation/slow drainage. Worker `relay-red-coordinator.log`. This is meaningful RED. |
+| Same relay regression command, worker GREEN attempt after implementation | **Exit 1 before collection:** the same esbuild ancestor-read/config denial. Worker `relay-green-worker.log`. No GREEN result, new runtime test count, or equivalent retry. Running the prepared PowerShell file also encountered the worker's script-execution policy; the direct canonical command above used the normal tool shell without changing that policy. |
+| Same relay regression command, coordinator execution of `run-relay-green.ps1` | **Exit 0: 19 passed, no skips.** Worker `relay-green-coordinator.log`, before the review corrections below. The raw file retains its mixed UTF-8 header/UTF-16 body; it was decoded for reading, not rewritten. This does not cover the two subsequently added signal tests. |
+| `node .companion-local/tc-ach.5/relay-signal-regression.cjs`, coordinator root | **Exit 1, meaningful review RED:** actual worker relay with a Windows-accurate external PTY boundary leaves `nativeAlive=true`, calls only `SIGINT`, destroys input, and never exits. Coordinator `relay-signal-red.log`. Earlier `relay-signal-path-error.log` is an ENOENT fixture-path failure, not RED; the reviewer's original observation-only exit 0 was not an assertion pass. |
+| `node C:/Users/Raziel/projects/terminal-companion/.companion-local/tc-ach.5/relay-signal-regression.cjs`, worker root | **Exit 0 after correction:** the same asserted fixture reports signal-less cleanup, `nativeAlive=false`, one exit 1, and no diagnostics. Worker `relay-signal-green-worker.log`. No real native provider is launched by this fixture. |
+| `node .companion-local/tc-ach.5/check-relay-process-admission.cjs` | **Exit 0:** 13 fabricated metadata cases exercise the actual PowerShell admission predicate. Executable/name/PID mismatch, out-of-window creation, absent metadata, and invalid windows reject; valid Windows paths and boundary timestamps accept. Worker `relay-process-admission-check.log`. No process lookup, kill, PTY or provider invocation. |
+| Same relay regression command, coordinator execution of `run-relay-review-green.ps1` | **Exit 0: 21 passed, no skips.** Worker `relay-review-green-coordinator.log`; includes the two signal tests. Independent review accepted the signal and fixture process-authority corrections. Runtime/tests are unchanged through the later fixture and documentation work, so this result and CLI typecheck remain applicable. |
+| `corepack.cmd yarn --cwd apps/cli vitest run --config vitest.config.ts src/integrations/pty/ptyProvider.test.ts src/integrations/pty/adapter.test.ts src/integrations/pty/terminalLaunchSpecRunner.test.ts src/integrations/pty/pythonPtyRelayProvider.test.ts` | **Exit 1: 46 passed, 3 failed, 2 skipped.** Worker `relay-adjacent-coordinator.log`. The three packaged-path failures are described below; the two Python-relay Windows skips are not passes. |
+| `corepack.cmd yarn --cwd apps/cli vitest run --config vitest.config.ts src/integrations/pty/ptyProvider.test.ts -t tries.packaged`, coordinator clean integration `abc4506f8e` | **Exit 1: the same 3 failures, 14 filter-skips.** Coordinator `tc-ach.5/packaged-baseline-focused.log`; source/tests unchanged from pinned upstream. The earlier spaced-filter command failed before collection (`packaged-baseline.log`), not test evidence. Follow-up **tc-ach.30** owns these fixtures. |
+| `node .companion-local/tc-ach.5/relay-native-validation.cjs exit7` | **Exit 0:** actual relay/native status 7, 86 exact PTY/relay bytes, final marker, observer/runner exit 0. Worker `relay-native-exit7-coordinator.log`, `relay-exit7-lmgag8/trace.json`. |
+| Same native command with `codex-version` | **Exit 0:** native Codex **0.160.0**, native/PTY/relay status 0, 436 exact bytes, observer/runner exit 0. Worker `relay-native-codex-version-coordinator.log`, `relay-codex-version-JYkpSq/trace.json`. |
+| Same native command with `slow-reader`, original ordering | **Exit 1:** invalid native-exit-before-reader-resume expectation hit the observation bound. Worker `relay-native-slow-reader-coordinator.log`, `relay-slow-reader-oi6LWv/trace.json`. Public PTY/relay exit 1 after EOF cleanup; later native OS exit is uncertified. This remains a failed experiment, not a product regression or a passing run. |
+| Same native command with `slow-reader`, corrected finite pause | **Exit 0:** native/PTY/relay status 7, **1,808,077 exact bytes**, final marker and `output-produced` asserted, observer/runner 0. Worker `relay-native-slow-reader-replay-coordinator.log`, `relay-slow-reader-y9AtsB/trace.json`. Direct-relay drainage after reader resume; no provider-cancellation claim. |
+| Same native command with `active-eof` | **Exit 0:** EOF to the owned relay while its child was active; native/PTY/relay status 1, **33 exact bytes**, observer/runner 0. Worker `relay-native-active-eof-replay-coordinator.log`, `relay-active-eof-8wPCWp/trace.json`. No forced observer/parent kill. |
 | `node .companion-local/tc-ach.5/native-probe.cjs` | **Exit 1** at the experiment's 20-second watchdog. Schema generation exit 0; socket inspection did not become successful; owned server was terminated, with its exit recorded. No proxy client was launched. |
 | Same worker probe, coordinator rerun outside the worker sandbox with scoped permission | **Exit 1:** explicit socket `stat` returned **EACCES**. Worker `coordinator-native-probe.log` and `native-probe-tc-ach5-native-9E6Gwc.json`. No ACL change. |
 | `node .companion-local/tc-ach.26/native-proxy-probe.cjs`, coordinator root | **Exit 0, transport-only pass.** Both WebSocket clients initialized and asserted empty loaded-thread lists; proxy B queried again after owned proxy A was killed. Backend stayed alive; cleanup recorded all owned children exiting. Coordinator `native-proxy-drop.log` and `native-probe-tc-ach5-native-gPyQ9G.json`. |
@@ -199,15 +244,331 @@ Existing coverage has limits: shared-server startup has four
 Windows; the proxy test uses a fake provider; local-control coverage substitutes
 the terminal supervisor. The external-resolution runtime test substitutes the
 permission handler. None proves a native Windows two-client approval race.
-Adjacent tests were not attempted after the original config-loading failure and
-were not rerun for this doc-only reconciliation. No behavior change was made,
-so there is no RED/GREEN claim for this research.
+During the original App Server transport research, adjacent tests were not
+attempted after the config-loading failure or rerun for its doc-only
+reconciliation. That research made no runtime behavior change and has no
+RED/GREEN claim. The later relay behavior change, regression tests and adjacent
+PTY run are reported separately below.
 
-## Bounded remaining experiment for approval
+## Loopback-model fixture admission
+
+The proposed follow-on experiment replaces only the external model HTTP/SSE API
+with a deterministic loopback fixture. Installed native Codex must still own the
+TUI, thread, tools, permission engine, and arbitration. This is separate from
+real-account, physical-phone, and product conformance evidence.
+
+The repository inventory covered model-provider/Responses/SSE and PTY terms in
+`apps`, `packages`, and `scripts`, then the CLI/testkit corridors. Relevant owners:
+
+| Existing fixture or owner | Reuse / limit |
+|---|---|
+| `apps/cli/src/backends/claude/sdk/anthropicSseBoundary.testkit.ts` | Genuine loopback model boundary, but Anthropic Messages events; no Responses API fixture was found in the searched sources. |
+| `packages/tests/src/testkit/codexAppServerRemoteHarness.ts` | Replaces the Codex App Server itself; unsuitable for proving native authority. |
+| `apps/cli/src/backends/codex/localControl/createCodexSharedTuiSupervisor.ts` and `apps/cli/src/agent/localControl/createAttachedTerminalSupervisor.ts` | Existing native attachment/supervision owners; remain read-only. |
+| `apps/cli/src/integrations/pty/ptyProvider.ts` and `apps/cli/scripts/node_pty_relay.cjs` | Existing Windows PTY backends and relay. Admission reused the relay with its `useConpty` / `useConptyDll` settings. |
+
+Exact-version [model-provider source](https://raw.githubusercontent.com/openai/codex/rust-v0.160.0/codex-rs/model-provider-info/src/lib.rs)
+defines `wire_api = "responses"` (not the removed `chat` variant), an explicit
+`base_url`, and `requires_openai_auth` / `supports_websockets` defaulting to false.
+Its documented no-auth path skips login; [official authentication guidance](https://learn.chatgpt.com/docs/auth)
+also requires omitting `env_key` for a provider that needs no authentication.
+No bearer token, auth command, gateway OAuth, AWS config, or credential-bearing
+header belongs in this fixture. The candidate definition in the fresh fixture
+home, **not yet exercised**, is:
+
+```toml
+model_provider = "tc_ach5_loopback"
+model = "tc-ach5-fixture"
+
+[model_providers.tc_ach5_loopback]
+name = "tc-ach5 loopback fixture"
+base_url = "http://127.0.0.1:<OS_ASSIGNED_PORT>/v1"
+wire_api = "responses"
+requires_openai_auth = false
+supports_websockets = false
+```
+
+The actual admission fixture only launches the repository relay with native
+`codex.exe --version`. It creates empty temporary home/project directories, uses
+an OS-only environment allowlist, file credential stores, disabled analytics and
+update checks, and read-only/on-request configuration. It starts no App Server,
+HTTP listener, login, or native interactive session. From the worker root:
+
+```powershell
+& 'C:/Program Files/Git/bin/bash.exe' ./apps/stack/bin/hstack-exec -- node --check .companion-local/tc-ach.5/native-tui-pty-admission.cjs
+& 'C:/Program Files/Git/bin/bash.exe' ./apps/stack/bin/hstack-exec -- node .companion-local/tc-ach.5/native-tui-pty-admission.cjs
+```
+
+Syntax check exited 0. Admission exited **1** after manual owned-relay cleanup;
+worker evidence is `pty-admission.log` and
+`pty-admission-tc-ach5-pty-s8tRDu.json`. The relay emitted terminal control bytes,
+the retained temporary-home helper warning, and `codex-cli 0.160.0`. Its 15-second
+experiment watchdog closed stdin; no relay close arrived. This is not a product
+timeout or proof that Codex remained alive. Direct diagnostic
+`Get-CimInstance Win32_Process -Filter 'ParentProcessId = 19388'` failed with
+`Access denied` / `0x80041003`. No equivalent permission retry was attempted.
+After matching relay PID **19388**, process name, and observed start time, the
+worker stopped only that relay. The runner recorded close code **4294967295**
+and terminated. Native/conhost PIDs were not exposed by the relay. The coordinator
+subsequently ran a scoped read-only query for
+`ProcessId = 19388 OR ParentProcessId = 19388`: **no rows, exit 0**, recorded in
+Beads comment `d65b13dc-915f-56cb-b0ab-4500e7c1b1e8` on **tc-ach.5.1**. This removes
+the current parent/direct-child concern at that observation time; it does not
+certify historical grandchildren or PTY lifetime. No process was killed by that
+query. The worker's denied query is not evidence that Codex stayed alive.
+
+At that first admission boundary, native exit, relay exit, and terminal-query
+handling were unresolved alternatives. The dependent TUI/model fixture stopped;
+no Responses SSE/tool-call vector was implemented or exercised. The following
+diagnostic separates those alternatives without starting a model endpoint.
+
+### Native exit versus PTY and relay lifetime
+
+**Observed, tc-ach.5.1:** the ignored `pty-exit-diagnostic.cjs` uses the installed
+backend directly, with the relay's options. It observes the public `pty.pid`,
+opens only that process with `Get-Process -Id`, captures its OS creation time,
+and holds the process handle while waiting for exit. It also records the real
+native callback's exit code, socket events, public `onExit`, and the output
+worker's lifetime. Private backend fields are read-only diagnostic observations,
+not a proposed production API. No native exit event is mocked.
+
+The existing relay/provider tests were inspected: their fake PTY boundary cannot
+establish native Windows handle cleanup. The process testkit's PID liveness
+helper does not bind creation identity. The existing
+[virtualTerminalScreen.ts](../../apps/cli/src/integrations/pty/virtualTerminalScreen.ts)
+owns screen/cursor capture for the PTY adapter; its public interface supplies no
+terminal-query response channel. The earlier search for a reusable headless
+fixture found the generated UI xterm asset. No terminal emulator was added:
+both processes exited without answers to the emitted terminal queries.
+
+From the worker root, each command below exited **0**:
+
+```powershell
+& 'C:/Program Files/Git/bin/bash.exe' ./apps/stack/bin/hstack-exec -- node --check .companion-local/tc-ach.5/pty-exit-diagnostic.cjs
+& 'C:/Program Files/Git/bin/bash.exe' ./apps/stack/bin/hstack-exec -- node .companion-local/tc-ach.5/pty-exit-diagnostic.cjs owned-child
+& 'C:/Program Files/Git/bin/bash.exe' ./apps/stack/bin/hstack-exec -- node .companion-local/tc-ach.5/pty-exit-diagnostic.cjs codex-version
+```
+
+| Evidence under worker `.companion-local/tc-ach.5/` | Native process and deciding observations |
+|---|---|
+| `pty-exit-ggvgvP/trace.json` | Input-gated Node child PID **26868**, created `2026-10-17T23:10:57.2825636Z`. Its explicit exit **7** reached both the held OS handle and native callback; public PTY exit **7** followed output-socket closure. |
+| `pty-exit-GBiJXG/trace.json` | Native Codex PID **2252**, created `2026-10-17T23:11:14.4784275Z`. Only `--version` ran: output `codex-cli 0.160.0`, held-handle/native callback exit **0**, then public PTY exit **0**. |
+
+In both cases the input socket and output worker remained alive after native
+and public PTY exit. Calling the supported `pty.kill()` closed the input socket,
+but the worker still retained a `MessagePort` after the diagnostic observation
+window. The runner exited after its diagnostic timers were cancelled **and only
+that fixture's worker** was terminated. Runner exit alone does not isolate which
+intervention removed the last live handle. This private cleanup is explicitly
+marked in each trace; it is neither a
+production fix nor a production-relay pass. The 3.5-second observation and
+2.5-second cleanup windows are experiment bounds, not proposed product deadlines.
+Both native children, observer children (PIDs **19152**, **25416**), and runners
+(**34916**, **27924**) have recorded exits; each owned worker's forced termination
+is recorded as code **1**. No descendant enumeration was retried, so unobserved
+ConPTY descendants are not independently certified.
+
+**Source mechanism, installed `node-pty` 1.1.0:** `lib/windowsPtyAgent.js` records
+native exit but skips `_flushDataAndCleanUp` in DLL mode. Its DLL `kill` path
+disposes the output worker only on a subsequent output `data` event.
+`lib/worker/conoutSocketWorker.js` creates a named-pipe server without closing it
+when the upstream output ends. `lib/windowsTerminal.js` emits public exit on
+output-socket close, which does not terminate that worker. The repository
+[relay](../../apps/cli/scripts/node_pty_relay.cjs), as it stood at the original
+admission, set `process.exitCode` and closed stdin on PTY exit, leaving Node to
+drain its handles. The retained
+worker is a source-backed cause of retained backend handles, consistent with the
+original relay hang. That original relay did not expose its internal exit
+events, so its historical event sequence cannot be retroactively certified.
+
+**Derived decision:** unanswered terminal queries did not prevent child or PTY
+exit in these two observations. Native TUI query handling is still untested.
+Coordinator review should scope a canonical PTY/relay lifetime correction with
+meaningful RED/GREEN and real Windows relay completion evidence, including final
+output and nonzero exit preservation. No shared runtime source changed during
+that diagnostic stage, and the held-handle observations needed no broader
+process permission.
+
+The granted **tc-ach.5.2** correction compares the public system-ConPTY option
+with explicit completion confined to the disposable relay. In installed 1.1.0,
+non-DLL native exit destroys the output socket after its one-second flush timer;
+it does not itself dispose the output worker. Non-DLL `kill` also invokes console
+process enumeration. A flag change alone therefore does not establish the required
+cleanup and final-output contract.
+
+The relay patch awaits authoritative PTY exit, the return of supported
+`pty.kill` cleanup, and completion of every queued stdout/stderr write callback
+before explicitly completing this disposable relay. EOF, signals, input errors,
+and output errors request that same owned cleanup. An error before native exit
+does not authorize completion; errors retain a nonzero outcome and diagnostics
+where stderr remains writable. Reentrant exit during cleanup cannot finish the
+relay before cleanup returns. No private backend fields or product timers were
+added. **tc-ach.5.2.1** tracks the dependency-owned worker-disposal correction;
+remove this narrow mitigation only after the replacement passes actual Windows
+lifecycle and drainage evidence.
+
+Review found that both installed Windows backends reject every nonempty signal.
+The first implementation set its cleanup guard before forwarding `SIGINT` or
+`SIGTERM`, so rejection also prevented a later signal-less cleanup. The corrected
+relay uses signal-less `pty.kill` on Windows and preserves the requested signal
+on other platforms. Persistent tests now cover Windows signal/repeated
+cancellation with final-output drainage and non-Windows signal preservation.
+The unchanged output-error and cleanup-order machinery is not replaced by this
+correction. Canonical GREEN including these new tests is **21 passed, exit 0**;
+the known worker esbuild sandbox denial was not retried.
+
+The [Node relay provider](../../apps/cli/src/integrations/pty/nodePtyRelayProvider.ts)
+now requests cancellation once through stdin EOF. It removes immediate forced
+termination on repeated cancellation and the two-second `SIGKILL` deadline,
+which could interrupt child cleanup or final output. Public provider exit still
+waits for relay stdio close. If native exit never arrives, the patch intentionally
+does not manufacture success by killing the relay. The in-process PTY provider
+and the separate POSIX Python relay remain unchanged; neither may inherit an
+in-process `process.exit` workaround.
+
+### Production-relay validation
+
+Coordinator execution of `run-relay-review-green.ps1` passed all 21 tests.
+The adjacent slice failed three `ptyProvider.test.ts` packaged-path cases at
+lines 315, 345 and 374. Each fixture uses exact POSIX slash keys while the owner
+constructs native paths, and each sets `fallbackProvider: null`, bypassing this
+relay patch. The same failures reproduced on clean integration `abc4506f8e`;
+the provider source/tests match pinned upstream `cb5f427`. They remain separate
+under **tc-ach.30**, not an adjacent-suite pass or a reproduced product loader failure.
+
+After independent fixture review, `run-relay-native.ps1` ran from the worker
+root. Its executor session **46352** completed with **exit 1**, stopping on the
+third case; no active executor handle remained. Individual cases used this
+routed command with `exit7`, `codex-version`, or `slow-reader`:
+
+```powershell
+& 'C:/Program Files/Git/bin/bash.exe' ./apps/stack/bin/hstack-exec -- node .companion-local/tc-ach.5/relay-native-validation.cjs exit7
+```
+
+Each case launches the
+actual production relay with a fixture-only preload observing public PTY
+`spawn`/PID/data/exit, without changing backend options or exit signals. A separate
+observer opens only PIDs obtained from those owned objects, then checks full
+executable path, process name, PID, and creation time against the captured spawn
+window **before** accepting a handle. Mismatched or unverifiable candidates are
+disposed and admission fails. It does not enumerate processes or read command
+lines/environments. A missing handle is failed admission.
+The preload's captured PTY bytes must equal the relay's received bytes after
+drainage; native, PTY, and relay statuses must agree. This slow-reader
+case directly invokes the relay: it does **not** exercise provider cancellation
+or its removed two-second timer. The focused provider regression is the current
+evidence for that behavior. The active EOF
+case first establishes a live owned child. Fresh home/project, minimal OS
+environment, file credential stores, and disabled update/analytics isolate every
+case. The sole Codex invocation is the installed **0.160.0 `--version`**.
+
+The initial observer accepted a PID without checking creation identity and could
+later kill that instance. Installed `conpty.cc` closes `hShell` immediately after
+native exit, before the JavaScript callback, so a fast `--version` PID may already
+be reusable. The corrected observer **never kills processes**, even after
+metadata admission. On failed admission the runner requests cleanup through its
+owned relay stdin pipe; it never kills the relay while a native child may remain
+alive. If cleanup does not finish, the command remains pending with its owned
+pipes/child handle and records the uncertainty. Observation bounds are fixture
+controls and cannot establish a pass. No native run exercised the unsafe fixture.
+
+The exit-7 trace records native **26604** and relay **35312** exiting 7, with
+**86 identical PTY/relay bytes** and `TC_FINAL_BYTES`. The Codex version trace
+records native **23812** and relay **22664** exiting 0, with **436 identical
+bytes** including `codex-cli 0.160.0`. Both observers and runners exited 0, both
+native/relay handles passed executable/creation-window admission, and neither
+case used forced cleanup. These are actual production-relay prerequisite passes.
+
+The original slow-reader trace held the reader at **13:21:24.119Z** on
+2026-10-18, then waited for native exit before resuming. Its observer's 30-second
+bound expired at **13:21:51.099Z**. The native-exit assertion failed; catch cleanup
+resumed reading and requested EOF through the owned relay. Public PTY and relay
+exited **1**, the observer exited **2**, and the runner exited **1**. Both raw byte
+files contain **1,531,965 identical bytes**, with no relay stderr, final marker,
+or `output-produced` file. Historical PIDs **22232/35272** are evidence only:
+the observer had closed before cleanup, so later native OS exit is not certified.
+No historical PID was queried or terminated during this reconciliation.
+
+**Derived fixture defect:** its harmless child calls `process.exit(7)` only
+after the stdout write callback. Requiring that exit while the consumer remains
+paused assumes throughput the real terminal path does not guarantee. Installed
+`node-pty` pipes ConPTY output through a worker socket; the preload also writes
+each data event synchronously to disk. The trace does not isolate terminal
+throughput, observer overhead, or downstream pressure as the deciding bottleneck.
+No no-pause control ran, and this timeout is not a meaningful product RED.
+
+The corrected ignored fixture removes the native-exit dependency from reader
+release. It holds for the existing **2.5-second fixture interval**, resumes, then
+requires authoritative native/PTY/relay status, exact final bytes, the final
+marker and the child's write-completion file. The **16,000-record payload**,
+process admission and observation bounds are unchanged. The hold and bounds are
+experiment controls, not production deadlines. Production source/tests are
+unchanged; provider cancellation remains covered by its focused regression,
+not this direct-relay case.
+
+After coordinator review, the corrected replay ran only `slow-reader` and
+`active-eof` from this worktree root, with **terminal exit 0**:
+
+```powershell
+& ./.companion-local/tc-ach.5/run-relay-native-remaining.ps1
+```
+
+That runner used the routed native command above for each case and preserved the
+original failed logs. In `relay-slow-reader-y9AtsB/trace.json`, the reader was held
+at **2026-10-18T14:29:11.545Z** and resumed at **14:29:14.048Z**. Native **11044**
+and relay **22920** exited **7**; public PTY status agreed. The fixture asserted
+**1,808,077 identical PTY/relay bytes**, `TC_FINAL_BYTES`, and the `output-produced`
+file; observer and runner exited **0**. The raw command result is in
+`relay-native-slow-reader-replay-coordinator.log`. This measures drainage after a
+finite pause, not native exit while paused or the provider cancellation path.
+
+In `relay-active-eof-8wPCWp/trace.json`, EOF was requested at
+**2026-10-18T14:29:17.892Z** with the owned child active. Native **17444** and relay
+**23416** exited **1**; public PTY status agreed, **33 bytes** matched exactly,
+and observer/runner exited **0**. The raw command result is in
+`relay-native-active-eof-replay-coordinator.log`. Both runs admitted native and
+relay handles and observed their exits without forced observer/parent kills.
+
+All four bounded native relay prerequisites now pass on the stated Windows,
+Node and `node-pty` versions. The dependency itself remains unrepaired under
+**tc-ach.5.2.1**. No broader platform certification follows. Unobserved descendants
+and the earlier failed slow-reader run's later native cleanup remain uncertified.
+This final reconciliation ran no native or code tests; the unchanged 21-test and
+CLI typecheck evidence remains applicable. No TUI/shared-session/device gate
+passes from these results.
+
+### Smallest remaining no-credential TUI experiment
+
+After final review and integration of the verified relay mitigation, obtain the
+separate grant for this TUI experiment; do not use the private worker termination
+above as product behavior. Reuse the isolated-home,
+environment-allowlist, file-store, analytics/update, read-only/on-request contract
+and the candidate custom provider above. Bind only an owned `127.0.0.1` port;
+the initial fixture must reject and record model requests without forwarding.
+Launch one owned native App Server and the original native TUI with
+`--remote unix://<owned socket> --cd <owned project> --sandbox read-only --ask-for-approval on-request`,
+with no initial prompt or submitted turn. Attach the existing native proxy plus
+`ws-node` response client, identify the same native thread through structured
+events, and type/edit an **unsent** local draft. Record PID/endpoint/thread,
+terminal behavior and cleanup. If startup requires a trust/login decision that
+cannot be safely serviced, stop. No paid account is needed for this proposed
+admission experiment; it was not run in this pass.
+
+Only after that gate is understood should the loopback fixture emit a pinned
+minimal Responses SSE tool request for one harmless project marker. Assert the
+effective provider/config/endpoint before that synthetic turn; stop on unexpected
+traffic or actions. Native request IDs, final item state and marker effect must
+decide approval results. Remote approval, local-first/stale responses, a
+conflicting race, and draft preservation around remote input all remain unrun.
+
+## Remaining real-account experiment for approval
 
 The no-credential two-client transport prerequisite **has passed** in the
 coordinator fixture above. The focused tests were also rerun, with the failure
-and four skips preserved. Remaining product work belongs in the existing
+and four skips preserved. The loopback-model/TUI fixture above remains unrun;
+its relay prerequisites now pass. Reviewed relay integration and the separately
+authorized TUI fixture should precede a real-account experiment.
+Remaining product work belongs in the existing
 client/shared-server owners: WebSocket framing over owned proxy pipes, readiness
 that does not mistake Node `stat` denial for native connection failure, and
 error/EOF/disposal behavior. That work requires its own authorized scope,
@@ -305,6 +666,7 @@ success supplies no reason to introduce that credential boundary now.
 | Gates | Disposition |
 |---|---|
 | Supporting no-credential transport prerequisite | **Passed:** two native proxy/WebSocket clients, empty-list assertions, and one proxy's termination without loss of the other client/backend. No native TUI or created thread; this passes none of A01 onward. |
+| Supporting loopback-model/TUI fixture | **Relay prerequisites passed; TUI fixture unrun:** 21-test GREEN, CLI typecheck and all four bounded native relay cases. Disposable-relay mitigation awaits final review/integration; dependency repair remains **tc-ach.5.2.1**. No model endpoint or TUI session. The original slow-reader failure and historical/unobserved descendant uncertainty remain explicit. |
 | A01–A03 | **Blocked:** no native TUI/response-client shared thread, permission, or question observed. |
 | A04–A06 | **Blocked:** no native local-first, competing, duplicate, or stale-response arbitration observed. |
 | A07, A20 | **Blocked:** draft and complete launch/profile/plugin/policy preservation need the attended recipe. |
