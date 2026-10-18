@@ -21,7 +21,8 @@ The corrected production relay subsequently completed native exit-7 and Codex
 No model fixture or TUI session ran, and historical descendant cleanup is not certified.
 
 The **tc-ach.5.2** disposable-relay mitigation is **verified for the four bounded
-native Windows fixtures below**, pending final review and integration. The
+native Windows fixtures below**, independently reviewed and integrated in
+`dd5881d3a24a9910c818e4157dad3fbfdf283c10`. The
 coordinator captured meaningful RED (**6 failed, 13 passed**) and then GREEN
 (**19 passed**). Review exposed a Windows signal-cleanup regression missed by
 that suite. Its separate asserting boundary fixture and the expanded **21-test**
@@ -537,10 +538,28 @@ This final reconciliation ran no native or code tests; the unchanged 21-test and
 CLI typecheck evidence remains applicable. No TUI/shared-session/device gate
 passes from these results.
 
+### Integrated verification
+
+The coordinator committed the five reviewed files as `d2a6268defac4301b4f737cdf62fd37f44628f5a`
+on `agent/codex-spike`, then integrated them individually on `companion/main` as
+`dd5881d3a24a9910c818e4157dad3fbfdf283c10`. Independent review reconciled all four
+native traces and byte buffers and accepted the bounded mitigation. Native
+evidence remains applicable to the unchanged runtime files, dependency version
+and Windows environment; no native run was repeated solely for integration.
+
+From the integration checkout, the routed Vitest command above ran both relay
+files together with the four adjacent files. It exited **1: 67 passed, 3 failed,
+2 skipped**. All **21 relay tests passed**; the three failures are the same
+packaged-path fixture failures tracked in **tc-ach.30**. CLI typecheck exited
+**0**. Coordinator logs are `.companion-local/tc-ach.5/relay-integrated-tests.log`
+and `relay-integrated-typecheck.log`; their runners record the exact commands
+and integration HEAD. The broader test slice is not green. Dependency repair,
+native provider cancellation and the TUI/phone gates retain the limits above.
+
 ### Smallest remaining no-credential TUI experiment
 
-After final review and integration of the verified relay mitigation, obtain the
-separate grant for this TUI experiment; do not use the private worker termination
+With the reviewed relay mitigation integrated, obtain the separate grant for
+this TUI experiment; do not use the private worker termination
 above as product behavior. Reuse the isolated-home,
 environment-allowlist, file-store, analytics/update, read-only/on-request contract
 and the candidate custom provider above. Bind only an owned `127.0.0.1` port;
@@ -566,8 +585,8 @@ conflicting race, and draft preservation around remote input all remain unrun.
 The no-credential two-client transport prerequisite **has passed** in the
 coordinator fixture above. The focused tests were also rerun, with the failure
 and four skips preserved. The loopback-model/TUI fixture above remains unrun;
-its relay prerequisites now pass. Reviewed relay integration and the separately
-authorized TUI fixture should precede a real-account experiment.
+its relay prerequisites now pass and the reviewed mitigation is integrated. The
+separately authorized TUI fixture should precede a real-account experiment.
 Remaining product work belongs in the existing
 client/shared-server owners: WebSocket framing over owned proxy pipes, readiness
 that does not mistake Node `stat` denial for native connection failure, and
@@ -666,7 +685,7 @@ success supplies no reason to introduce that credential boundary now.
 | Gates | Disposition |
 |---|---|
 | Supporting no-credential transport prerequisite | **Passed:** two native proxy/WebSocket clients, empty-list assertions, and one proxy's termination without loss of the other client/backend. No native TUI or created thread; this passes none of A01 onward. |
-| Supporting loopback-model/TUI fixture | **Relay prerequisites passed; TUI fixture unrun:** 21-test GREEN, CLI typecheck and all four bounded native relay cases. Disposable-relay mitigation awaits final review/integration; dependency repair remains **tc-ach.5.2.1**. No model endpoint or TUI session. The original slow-reader failure and historical/unobserved descendant uncertainty remain explicit. |
+| Supporting loopback-model/TUI fixture | **Relay prerequisites passed; TUI fixture unrun:** 21-test GREEN, CLI typecheck and all four bounded native relay cases. Disposable-relay mitigation reviewed and integrated; integration checks retain three baseline failures and two skips. Dependency repair remains **tc-ach.5.2.1**. No model endpoint or TUI session. The original slow-reader failure and historical/unobserved descendant uncertainty remain explicit. |
 | A01–A03 | **Blocked:** no native TUI/response-client shared thread, permission, or question observed. |
 | A04–A06 | **Blocked:** no native local-first, competing, duplicate, or stale-response arbitration observed. |
 | A07, A20 | **Blocked:** draft and complete launch/profile/plugin/policy preservation need the attended recipe. |
