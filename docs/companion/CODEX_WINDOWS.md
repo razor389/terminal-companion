@@ -4,8 +4,9 @@ Research basis: **2026-10-17**, **tc-ach.5**, native **codex-cli 0.160.0**.
 **Native two-client transport passed; same-TUI shared live control remains
 BLOCKED / UNVERIFIED.** Two WebSocket clients used native proxy pipes to reach
 one disposable backend; the second remained usable after the first proxy was
-terminated. No native TUI, thread creation, model turn, permission race, phone,
-draft, or incarnation behavior was exercised. The coordinator's focused test
+terminated. That transport probe exercised no native TUI, thread creation, model
+turn, permission race, phone, draft, or incarnation behavior. The coordinator's
+focused test
 rerun exited 1: **9 passed, 1 failed, 4 Windows skips**. The failure is a
 pre-existing POSIX fixture assumption. CLI typecheck passed. Node socket `stat`
 still returned `EACCES` outside the worker sandbox; native proxy access succeeded.
@@ -18,12 +19,13 @@ still alive after supported cleanup. A harmless Node child reproduced that
 retained-worker behavior. This isolates a backend resource-lifetime problem.
 The corrected production relay subsequently completed native exit-7 and Codex
 `--version` fixtures with exact final bytes and matching native/PTY/relay status.
-No model fixture or TUI session ran, and historical descendant cleanup is not certified.
+Those relay fixtures ran no model or TUI session, and historical descendant
+cleanup is not certified.
 
 The **tc-ach.5.2** disposable-relay mitigation is **verified for the four bounded
 native Windows fixtures below**, independently reviewed and integrated in
-`dd5881d3a24a9910c818e4157dad3fbfdf283c10`. The
-coordinator captured meaningful RED (**6 failed, 13 passed**) and then GREEN
+`dd5881d3a24a9910c818e4157dad3fbfdf283c10`. The coordinator captured meaningful RED
+(**6 failed, 13 passed**) and then GREEN
 (**19 passed**). Review exposed a Windows signal-cleanup regression missed by
 that suite. Its separate asserting boundary fixture and the expanded **21-test**
 canonical slice now pass; CLI typecheck passed. Adjacent tests exited 1 with
@@ -33,6 +35,18 @@ EOF all passed. The original slow-reader experiment failed while requiring
 native exit before releasing its paused reader; that failed run and its historical
 cleanup uncertainty remain explicit. This verifies a disposable-relay mitigation,
 not dependency repair or native TUI shared control. **tc-ach.5.2.1** remains open.
+
+On **2026-10-19**, the second and third no-prompt runs displayed the original
+native TUI on the owned backend/socket and observed a new thread. The second
+rejected a turn-list read with **-32600**; the third passed metadata identity
+checks, then rejected hydration with **-32601**. Both stopped with **0 validated
+samples, 0 model requests and no draft input**, then recorded local TUI exit and
+all retained sidecar closes. The -32601 remains unexplained. The coordinator
+removed complete-history enumeration from the bounded metadata/draft experiment.
+The fourth run then passed successful metadata observation while the coordinator
+typed, edited and cleared an unsent draft in the original TUI. The TUI exited 0
+and all retained children closed. Complete history and all shared-response gates
+remain unverified; this is not product acceptance.
 
 This is a development feasibility record, not a supported-version announcement
 or a negative proof about Codex. [SPEC.md](SPEC.md), [SECURITY.md](SECURITY.md), and
@@ -559,8 +573,7 @@ native provider cancellation and the TUI/phone gates retain the limits above.
 ### Smallest remaining no-credential TUI experiment
 
 With the reviewed relay mitigation integrated, obtain the separate grant for
-this TUI experiment; do not use the private worker termination
-above as product behavior. Reuse the isolated-home,
+this TUI experiment; do not use the private worker termination above as product behavior. Reuse the isolated-home,
 environment-allowlist, file-store, analytics/update, read-only/on-request contract
 and the candidate custom provider above. Bind only an owned `127.0.0.1` port;
 the initial fixture must reject and record model requests without forwarding.
@@ -571,7 +584,7 @@ with no initial prompt or submitted turn. Attach the existing native proxy plus
 events, and type/edit an **unsent** local draft. Record PID/endpoint/thread,
 terminal behavior and cleanup. If startup requires a trust/login decision that
 cannot be safely serviced, stop. No paid account is needed for this proposed
-admission experiment; it was not run in this pass.
+admission experiment. The later attempts and their limits are recorded next.
 
 Only after that gate is understood should the loopback fixture emit a pinned
 minimal Responses SSE tool request for one harmless project marker. Assert the
@@ -580,13 +593,132 @@ traffic or actions. Native request IDs, final item state and marker effect must
 decide approval results. Remote approval, local-first/stale responses, a
 conflicting race, and draft preservation around remote input all remain unrun.
 
+### No-prompt native admission and history reads (2026-10-19)
+
+The first coordinator run, worker `tui-no-prompt-nQKjq8/events.jsonl`
+(00:26:53–55Z), initialized the fresh backend/proxy and passed no-account admission,
+then rejected `config/read` validation before launching a TUI. No sample or model
+request occurred; both sidecars closed. The ignored validator was corrected for
+the pinned provider serialization: omitted optional fields serialize as null,
+and the standalone-search flag defaults false. Its source-derived RED/GREEN logs
+remain `config-admission-{red,green,final-green}.log`; no strict policy was relaxed.
+
+The second run, worker `tui-no-prompt-OJ9EuY/events.jsonl`, passed that corrected
+configuration guard and empty loaded-thread admission. Windows Codex **0.160.0**
+backend PID 33604 and proxy PID 25616 initialized at 14:35:43Z. Original TUI PID
+21888 used the same
+owned Unix endpoint. The coordinator separately trusted only the fresh
+`tc-ach5-tui-uqf06m/project`; no existing installation/session was used. Thread
+`01a154ae-855f-7693-9a05-61cb330feb34` appeared at 15:01:26Z. Metadata `thread/read`
+succeeded, but `thread/turns/list` returned **-32600** before any validated sample
+or draft input. Local CTRL+C exited the empty-composer TUI **0**; its disconnect
+hint identified the same thread/socket and was not executed. The 15:11:30Z result
+was `BLOCKED_OR_INCOMPLETE`, with 0 structured samples, 0 model requests and all
+retained children closed; executor 79949 exited **2**. Coordinator
+`.companion-local/tc-ach.5/native-terminal-OJ9EuY.json` retains terminal evidence.
+These are historical process identities, not cleanup authority.
+
+Pinned [thread read/list source](https://raw.githubusercontent.com/openai/codex/rust-v0.160.0/codex-rs/app-server/src/request_processors/thread_processor.rs)
+and [native tests](https://raw.githubusercontent.com/openai/codex/rust-v0.160.0/codex-rs/app-server/tests/suite/v2/thread_read.rs)
+establish that live metadata can precede persisted history and a fresh turn-list
+read can reject before the first user message. The stored trace omits the error
+message, so this is a supported explanation, not a proved cause of that -32600.
+Even the named unmaterialized error collapses several
+[rollout-resolution failures](https://raw.githubusercontent.com/openai/codex/rust-v0.160.0/codex-rs/thread-store/src/local/read_thread.rs);
+it and metadata-only empty turns cannot certify no-turn state.
+
+The then-proposed observer required a **paginated, non-ephemeral** thread,
+`includeTurns:true` hydration and a separate empty turn page. Pinned
+`apply_thread_read_store_fields` persists pending history before hydration; the
+source-derived boundary vectors therefore modeled that path. Worker
+`empty-thread-red.log` exited **1**, followed by **0** in
+`empty-thread-green.log` and `empty-thread-final-green.log`. Those were harmless
+checks, not native GREEN. The prior source, logs and failure evidence remain
+preserved; that approach is superseded below.
+
+The third run, worker `tui-no-prompt-ZIhTHi/events.jsonl`, initialized backend
+33380 / proxy 17268 at 16:23:53Z. Original TUI 8400 reached the composer at the same
+socket and created thread `01a154fd-c497-75a2-a6c1-3b0ea606db42`. Metadata
+identity/mode validation succeeded. At **16:28:00.358Z**,
+`thread/read(includeTurns:true)` returned **-32601**, which did not match the
+unmaterialized-thread diagnostic. Its cause remains unknown; the full error
+payload was deliberately not retained. No sample or draft input occurred.
+Local CTRL+C exited TUI **0**, then the owned proxy/backend closed. At
+**16:29:11.220Z**, the result was `BLOCKED_OR_INCOMPLETE`, with 0 structured samples,
+0 model requests and all retained children closed; executor 88816 exited **2**.
+Coordinator `.companion-local/tc-ach.5/native-terminal-ZIhTHi.json` retains the
+terminal record. These identities confer no current process authority.
+
+The coordinator explicitly removed complete-history enumeration as an invented
+prerequisite for the first no-prompt terminal/draft observation. The narrower
+experiment uses the existing loaded-thread inventory and successful
+`thread/read(includeTurns:false)` identity checks. It measures neither complete
+history nor shared responses; metadata `turns:[]` and RPC errors establish no
+empty-history proof. Hydration/turn-list requests, their validators and exact-error
+matching are removed from the active ignored fixture, without retries, mode
+fallbacks or a second observer. Strict config, no-account, rejecting model
+endpoint, identity, required-RPC and unexpected-event failures remain enforced.
+No product contract, permission policy or Windows guard changes.
+
+Worker `metadata-only-red.log` exited **1** on the hydration dependency, missing
+partial-result fields and premature sidecar exit. `metadata-only-green.log`
+exited **0**. A separate `metadata-only-events-red.log` exited **1** for an ignored
+`turn/completed` notification; `metadata-only-final-green.log` exited **0** after
+all `turn/*` events became failures. These use the real fixture observer/RPC logic
+with external boundary vectors, including strict mismatch/error/privacy cases.
+No native process or listener ran during this writer pass.
+
+### Native metadata and unsent draft observation (2026-10-19)
+
+After independent review and a fresh scoped grant, the coordinator ran the
+unchanged wrapper from the Codex worktree with **tty:true**:
+
+```powershell
+& ./.companion-local/tc-ach.5/run-native-tui-no-prompt.ps1
+```
+
+The wrapper invokes the routed Node fixture with `--reviewed-run --observe-ms
+60000 --system-config-dir <Windows ProgramData known-folder>/OpenAI/Codex`.
+That bound covers startup and individual RPCs; attended observation follows
+the original TUI lifetime. Run `tui-no-prompt-hcPKHD` admitted strict configuration,
+no account and an empty initial loaded-thread inventory. Only its fresh
+`tc-ach5-tui-DayWsS/project` received a native folder-trust decision. Backend
+27392, proxy 13844 and original TUI 17416 used the same owned Unix endpoint;
+thread `01a1553a-1ee6-78f0-9928-775da1b9d34f` appeared at 17:33:54.806Z.
+
+The coordinator visibly typed **`tc-ach5-draft-A`** without Enter. After a matching
+metadata sample, Backspace followed by `B` changed the final character. Another
+sample at 18:05:58.271Z retained the same backend/TUI/thread and idle state.
+Fifteen Backspaces restored the empty composer placeholder. Local CTRL+C then
+exited the original TUI **0** at 18:18:59.779Z. Its reconnect hint was not used.
+The fixture stopped only its retained proxy/backend handles after TUI closure;
+both recorded exit/close by 18:18:59.803Z. This is Windows termination of owned
+sidecars, not a graceful-provider-shutdown claim or descendant census.
+
+Executor **40040 exited 0**. The final result at 18:18:59.804Z was
+`PARTIAL_METADATA_OBSERVED_DRAFT_REVIEW_REQUIRED`, with **0 model requests**,
+all owned direct children closed, `historyMeasured:false` and
+`sharedResponsesMeasured:false`. There were no required RPC failures or recorded
+unexpected model/server/turn events. The terminal returns and post-draft samples
+are retained in coordinator `.companion-local/tc-ach.5/native-terminal-hcPKHD.json`;
+the worker run directory contains `events.jsonl`. Process IDs are historical
+evidence, not authority for later cleanup.
+
+**Observed:** original native Windows TUI editing remained usable while a second
+client read stable metadata from the same backend/thread. This does not measure
+complete history, model continuation, remote input or draft preservation during
+remote delivery. Permissions, questions, native arbitration, stale/incarnation
+responses and physical-device gates remain unverified. Earlier failed attempts
+retain their recorded dispositions.
+
 ## Remaining real-account experiment for approval
 
 The no-credential two-client transport prerequisite **has passed** in the
 coordinator fixture above. The focused tests were also rerun, with the failure
-and four skips preserved. The loopback-model/TUI fixture above remains unrun;
-its relay prerequisites now pass and the reviewed mitigation is integrated. The
-separately authorized TUI fixture should precede a real-account experiment.
+and four skips preserved. The bounded no-prompt metadata/draft experiment above
+has passed; synthetic model/tool responses remain unrun. A separately prepared
+and reviewed loopback tool-response experiment should precede a real-account
+experiment. Complete history and native response control remain unverified.
 Remaining product work belongs in the existing
 client/shared-server owners: WebSocket framing over owned proxy pipes, readiness
 that does not mistake Node `stat` denial for native connection failure, and
@@ -685,10 +817,10 @@ success supplies no reason to introduce that credential boundary now.
 | Gates | Disposition |
 |---|---|
 | Supporting no-credential transport prerequisite | **Passed:** two native proxy/WebSocket clients, empty-list assertions, and one proxy's termination without loss of the other client/backend. No native TUI or created thread; this passes none of A01 onward. |
-| Supporting loopback-model/TUI fixture | **Relay prerequisites passed; TUI fixture unrun:** 21-test GREEN, CLI typecheck and all four bounded native relay cases. Disposable-relay mitigation reviewed and integrated; integration checks retain three baseline failures and two skips. Dependency repair remains **tc-ach.5.2.1**. No model endpoint or TUI session. The original slow-reader failure and historical/unobserved descendant uncertainty remain explicit. |
-| A01–A03 | **Blocked:** no native TUI/response-client shared thread, permission, or question observed. |
+| Supporting loopback-model/TUI fixture | **Relay prerequisites and bounded no-prompt metadata/draft observation passed:** integrated 21-test GREEN and CLI typecheck; combined slice 67 passed / 3 baseline failures / 2 skips (tc-ach.30). Four bounded native relay cases passed. The fourth no-prompt run observed original TUI edits with a second metadata client on the same backend/thread, then TUI0 and all retained direct child closes. Earlier history RPC failures remain recorded. History, model continuation and shared responses are unmeasured. Dependency repair is **tc-ach.5.2.1**; earlier cleanup limits remain explicit. |
+| A01–A03 | **Blocked:** partial same-endpoint/TUI/thread evidence does not establish complete structured shared control, a permission response or a question response. |
 | A04–A06 | **Blocked:** no native local-first, competing, duplicate, or stale-response arbitration observed. |
-| A07, A20 | **Blocked:** draft and complete launch/profile/plugin/policy preservation need the attended recipe. |
+| A07, A20 | **Blocked:** unsent local editing was observed under concurrent metadata reads. Remote-input draft preservation and complete launch/profile/plugin/policy preservation still need their native recipes. |
 | A10, A13, A18 | **Blocked:** incarnation rejection, lost acknowledgement, and native cancellation need live evidence and the shared response contract. |
 | A19 | Source restriction confirmed; end-to-end unsupported-state UX and production transport integration remain unverified. |
 | A08–A09, A11–A12, A14–A17 | Separate composed/security/Android/multi-machine/launcher gates. This spike provides no passing result for them. |
