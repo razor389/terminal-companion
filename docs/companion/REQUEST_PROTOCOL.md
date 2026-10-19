@@ -75,7 +75,7 @@ Reopening the app refreshes the existing pending projection and reconciles again
 |---|---|
 | Native Codex | Actual Windows TUI plus response client on the same backend/thread; native local-first/concurrent arbitration, stale replies and acknowledgement semantics. Two-client transport alone is insufficient |
 | Native Claude | A local deny/cancel path while the hook waits; reliable hook invalidation/identity despite missing PermissionRequest tool IDs; response consumption evidence. The corrected lifecycle wrapper does not resolve these gaps |
-| Native OpenCode | Pinned server/attached-TUI dialect, exact permission/question identity, native competing decisions and Windows continuity; no version is certified yet |
+| Native OpenCode | [2.0.15 native research](OPENCODE_WINDOWS.md) observes permission/form replies, exact draft restoration and one sequential stale permission reply. Production binding, model continuation, concurrent decisions, reconnect and phone control remain unverified; no version is certified yet |
 | Custom adapter | The same explicit capabilities and conformance checks; unsupported structured decisions remain unavailable |
 
 Remote ordinary input must not overwrite or submit a desktop draft. The native input owner either performs a provider-supported insertion with the required semantics or queues until it can prove delivery safe. Screen classification followed by an unrelated write is not atomic evidence. Connector failure must not close the locally useful terminal; terminal-host failure is a separate documented boundary.
