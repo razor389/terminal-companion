@@ -1,0 +1,216 @@
+# OpenCode native Windows experiment
+
+**Native API permission/form replies, local-first stale permission rejection and exact draft restoration are observed. The latest run failed on a Windows status-file rename, while owned cleanup completed.** This is the tc-ach.4 provider-boundary experiment on `agent/opencode-spike`, based on reviewed integration `abc4506f8e38a69724e41f78b9cdf5c880611660`. The coordinator performed the native runs below. This final documentation pass changes no fixture or production code and executes no provider. Earlier failed runs remain failed; no full product PASS is claimed. Beads owns assignment and review status.
+
+The experiment uses one foreground OpenCode server, its original native TUI explicitly connected to that server/session, and a second API client. API-created requests exercise native permission/form owners without a model turn. They cannot establish model-tool continuation, authenticated phone control, relay resilience or the full [product acceptance](ACCEPTANCE.md).
+
+## Evidence basis
+
+The repository's [V2 contract fixture](../../apps/cli/src/backends/opencode/server/client.v2.contract.test.ts) pins OpenCode **2.0.15**, source **`6f3639d82ed0760091792189b78f8eeb44f699b1`**. All vendor source reads for this preparation used that full commit. Cached primary source is under the worker's ignored `.companion-local/tc-ach.4/source/`.
+
+The coordinator acquired `@opencode/cli-windows-x64-baseline@2.0.15` at:
+
+```text
+C:/Users/Raziel/projects/terminal-companion/.companion-local/tc-ach.4/binary-2.0.15/extracted/package/bin/opencode.exe
+```
+
+Observed here: the executable is 203,656,232 bytes; the adjacent `binary-2.0.15/acquisition.json` records successful archive integrity verification and exactly two regular entries, `package/package.json` and `package/bin/opencode.exe`. Its recorded registry SHA-512 is:
+
+```text
+TFaSuLmkSYMHFCEHnS7f9f26NjY5CbNiOr4K7GbvXYWMaaVXqq3KgbDoavs5qc8cxLimYmv0/HJL2TWiC+f9wg==
+```
+
+The worker did not recompute that archive digest or execute the artifact. The acquisition record establishes what the coordinator verified; byte count alone does not establish integrity. Neither establishes build provenance, a signature or native behavior. The runner fixes this absolute path and checks its size; the coordinator's first attempt measured version output but did not reach help. A changed artifact must return to acquisition review; never substitute PATH/latest.
+
+The coordinator used actual `exec_command tty:true` for run `f154c028-08da-47b9-8bcf-868b520519f3` and reported executor exit 1. Observed in the retained `.companion-local/tc-ach.4/runs/f154c028-08da-47b9-8bcf-868b520519f3/evidence.jsonl` and `status.json`: the sole child was the pinned binary with `--version`; it printed exactly `opencode v2.0.15` on stdout at `2026-10-18T16:14:52.082Z`, exited 0 and closed. Historical PID 26948 is diagnostic only. The runner recorded `Native version mismatch`, `failed:true`, `stopped:true`, phase `stopped` and provider gate `UNVERIFIED`. It created no other children, endpoint, session or request references and recorded no HTTP activity. Help, native server/TUI, authentication checks and model/session activity were not reached.
+
+Cleanup completed for the one already-exited and closed version child; no live child remained in the retained run state. This does not test foreground server termination or native TUI shutdown. No historical PID was queried, no retry was run by this worker, and the failed artifacts are preserved unchanged. Re-derived fixture cause: the old leading word-boundary assertion rejected the `v2` transition because both characters are word characters. The consumed version validator now requires exactly one captured `opencode v2.0.15` line, including the capture's normalized final LF. Wrong versions, extra versions, prefixes, suffixes and extra lines fail closed. The native version observation and this harness correction do not pass a provider/product gate.
+
+### Native shared-session run and cleanup failure
+
+Run `8c75d7fd-1e5e-4fae-a309-1ae18f692e70` is retained under this worktree's `.companion-local/tc-ach.4/runs/`, including `evidence.jsonl` and `status.json`. The coordinator's terminal records are under `C:/Users/Raziel/projects/terminal-companion/.companion-local/tc-ach.4/`: `native-terminal-8c75d7fd.json`, `controller-terminal-8c75d7fd.json` and `recovery-result-8c75d7fd.json`. This writer re-read those artifacts; it did not rerun native work or query historical PIDs. All times below are UTC on 2026-10-18.
+
+| Boundary | Observed evidence and limit |
+| --- | --- |
+| Startup and auth | Version/root-help/serve-help children exited 0. The single foreground backend identified itself as 2.0.15 at `http://127.0.0.1:57443`, historical PID 744. Missing and wrong Basic auth each returned 401 for info and session creation. The original TUI, historical PID 25784, attached with that URL and session `ses_eafdf8795ffeZ5vnL1oI89MBn2`. This is native startup/auth evidence for the disposable run, not per-device companion authorization |
+| Permission and draft | Terminal handle 7449 received unsent `DRAFT-TC-ACH4-UNSENT` at 17:52:32.036. Native request `per_7872f53752894f99a68fb7a9a7775480` was created at 18:33:26.896; the native terminal displayed its `companion_fixture` permission prompt. Remote `once` returned 204 at 18:44:38.336 with the matching `permission.replied` event. The following snapshot retained backend/session identity, a live TUI and empty pending inventory. At 18:45:55.237 the same terminal rendered the exact unsent draft again. This proves that permission/draft slice; no model tool was waiting |
+| Form attempt | Native form `frm_13bd1429fa1241fc9b8dde2f69cdc2e0` was created at 20:00:05.754 and shown with `Choice`, `Fixture text` and `Submit` in the native terminal capture at 20:34:53.163. At 21:00:47.689 the event journal recorded `form.cancelled` and `location.shutdown`. The isolated native log, `C:/Users/Raziel/AppData/Local/Temp/tc-ach4-opencode-AjzBGT/xdg-data/opencode/log/opencode.log`, line 109 records `location services evicted` at 21:00:47.659 |
+| Failed form response | At 21:58:55.974 the controller's preflight form-detail GET returned 404. The journal contains **zero form reply POSTs**. This run did not exercise the remote form response; it is not evidence that native forms cannot accept remote responses. Native idle cancellation preceded the attempt; do not attribute the failure to stale-response arbitration or change the native idle lifecycle. The later run below supplies separate form-response evidence |
+| Cleanup failure | TUI exit/closure was 0 at 22:38:59.538. The coordinator recorded stop-mailbox acknowledgement at 22:40:28.987; the controller capture at 22:40:29.140 retained it. SSE events continued afterward. The old `cleanupRun` awaited observer completion before reaching retained-server termination. Its tests incorrectly modeled abort as immediate observer completion |
+| Exceptional recovery | The separately approved coordinator script `recover-owned-backend-8c75d7fd.ps1` retained an OS process handle and checked the exact executable, creation time and successful TUI closure before terminating only that disposable backend. `recovery-result-8c75d7fd.json` records recovery-script exit 0 and original executor 7449 exit 1. Native backend exit was 4294967295 (reported as -1 by the recovery API). Final fixture state is stopped/failed with all direct children closed, plus an owned-handle termination failure recorded during the recovery race. This was **not clean fixture cleanup** |
+
+The native idle lifecycle is expected. Pending-form cache retention does not pin a native location or prevent its shutdown/cancellation. The related product reconciliation gap is tracked by **tc-ach.31**, source-derived by the coordinator at root commit `44c5915a2c`; this research does not implement it. No keepalive, idle-timeout change or synthetic success is introduced. Zero recorded session cost/tokens supports the no-model experiment but does not prove absence of network traffic. The exceptional recovery script is retained evidence, not a reusable cleanup command or authority to act on an old PID.
+
+### Fresh form, local-first permission and owned cleanup
+
+Run `5a0b4c97-78fd-4196-889e-00c2f6fb737d` is retained at `.companion-local/tc-ach.4/runs/5a0b4c97-78fd-4196-889e-00c2f6fb737d/{evidence.jsonl,status.json}` in this worktree. Raw native/controller observations are `C:/Users/Raziel/projects/terminal-companion/.companion-local/tc-ach.4/{native-terminal-5a0b4c97.json,controller-terminal-5a0b4c97.json}`. The writer inspected these records directly. Times below are UTC on **2026-10-19**; journal line numbers refer to this run's `evidence.jsonl`. Terminal chunk IDs identify retained observations, not live handles to reuse.
+
+| Boundary | Observed evidence and limit |
+| --- | --- |
+| Identity and auth | The exact acquired binary reported 2.0.15; version/root-help/serve-help exited 0. One foreground backend, historical PID 31028, served `http://127.0.0.1:55035`. The original TUI, historical PID 22188, attached to that endpoint and session `ses_eae5bc056ffetXg5GU4lDjUOyr`. Missing/wrong Basic auth each returned 401 for info and session creation (lines 69–75). This does not establish companion enrollment or device authorization |
+| Native structured form and draft | Terminal chunk `23975c` records typing exactly `DRAFT-TC-ACH4-UNSENT` without submission. Form `frm_e100be07274b4227aa5c492d9585a5a6` was created at 01:20:43.142 (lines 119–120). Chunk `070403` shows the actual native `Choice`, `Fixture text`, `Submit`, `Local` and `Remote` controls. Remote reply returned 204 with matching `form.replied` at 01:25:36.209 (lines 146–147). Fresh GET at 01:25:36.225 records `answered` with `{choice:"remote",note:"remote-text"}`; the following snapshot has no pending form and retains the same backend/session and live TUI (lines 157–158). Chunk `1f1b72` shows the exact unsent draft restored in that original TUI |
+| Local permission answer | Native chunk `31ab9d` shows `Allow once` for `companion_fixture`; chunk `d7bc8e` records Enter on that displayed control. Native `permission.replied` for `per_14fb281ea8444eb883d8be41df9279e2` reports `once` at 01:45:34.101 (line 188). The controller snapshot at 01:53:46.169 has no pending permission (line 203) |
+| Stale old ID and successor | Successor `per_3a49b5500d0b40908be47ec53d86ef94` was created at 01:53:46.412 with the same synthetic action/resource (lines 223–224). Replaying the old permission ID returned 404 `PermissionNotFoundError` at 01:54:37.684 (line 244). The snapshot at 01:54:37.694 retained the successor pending, the same backend/session and live original TUI (line 253); native chunk `e1bf05` still shows the permission prompt. This is one sequential local-first stale-answer observation, not a concurrent race |
+| Later successor lifecycle | At 02:54:21.101 the native journal reports the successor's `permission.replied: reject` together with `location.shutdown` (lines 278–279). The terminal's Tab/right-arrow attempts do **not** establish a local rejection. The last snapshot in final `status.json` is the historical 01:54:37.694 snapshot, including its then-pending successor and `tuiLive:true`; it is not final pending or process truth |
+| Owned cleanup | Native chunks `d3655c` and `5875ee` show selecting and confirming `Exit the app`. Final state records TUI exit 0 at 13:45:28.708 and closure. Retained backend cleanup was requested; it exited at 13:45:28.740 with signal `SIGTERM` and is recorded closed. Observer disconnection is at 13:45:28.741 (line 280), followed by terminal-result at 13:45:28.742 with every direct child closed (line 281). No exceptional PID recovery was needed in this run |
+| Failed fixture result | Executor 81563 ended with exit 1 (native chunk `5875ee`); final status is `stopped:true`, `failed:true`, provider gate `UNVERIFIED`. The retained failure is `EPERM: operation not permitted, rename .../status.json.tmp -> .../status.json`, at `probe.mjs:29` called by the periodic save at line 471. Controller 32590 subsequently exited 0 on `quit` (chunk `991583`). The cause beyond the observed Windows rename denial is unknown; no antivirus, reader contention or native-backend cause is established |
+
+A native `location.shutdown` was also recorded at 01:52:21.033, between the local permission answer and successor creation (line 193). Subsequent native reads still identify the original backend/session, and the same original TUI remained live. The stale result therefore does not establish uninterrupted native location-service lifetime or competing-answer arbitration. The later rejection alongside location shutdown is consistent with the already observed idle lifecycle; it must not be relabeled as success of the attempted terminal navigation. tc-ach.31 remains the separate product reconciliation follow-up.
+
+The fresh native answer, matching event and actual TUI transition establish the bounded form/draft result; the old-ID response and immediate successor snapshot establish the bounded stale-permission result. Recorded HTTP routes contain no model-turn request, and session snapshots retain zero cost/tokens and the explicit `ask` policy. These observations involve API-created native pending requests, not the production companion adapter or a model tool waiting to continue. Owned cleanup succeeded under a failed fixture run. It does not erase the rename failure or the earlier version/form/cleanup failures, certify a clean full run, or authorize a fixture fix/retry.
+
+Observed repository owners, left unchanged:
+
+| Owner | Relevant contract |
+| --- | --- |
+| [runOpenCode.ts](../../apps/cli/src/backends/opencode/runOpenCode.ts), [backendMode.ts](../../apps/cli/src/backends/opencode/backendMode.ts) | Default server backend; attach target comes from the selected runtime's identity/session |
+| [createOpenCodeSharedLocalControl.ts](../../apps/cli/src/backends/opencode/localControl/createOpenCodeSharedLocalControl.ts) | Rechecks session identity around attach preparation; target equality includes endpoint/session/launch fingerprint |
+| [createOpenCodeAttachArgs.ts](../../apps/cli/src/backends/opencode/localControl/createOpenCodeAttachArgs.ts), [resolveOpenCodeAttachCliDialect.ts](../../apps/cli/src/backends/opencode/localControl/resolveOpenCodeAttachCliDialect.ts), [resolveOpenCodeLocalControlSupport.ts](../../apps/cli/src/backends/opencode/localControl/resolveOpenCodeLocalControlSupport.ts) | V2 root `--server URL --session ID directory`; authenticated generation selection and terminal support |
+| [client.ts](../../apps/cli/src/backends/opencode/server/client.ts), [runtime.ts](../../apps/cli/src/backends/opencode/server/runtime.ts) | Session/request mapping, permission/form replies and runtime permission policy |
+| [sharedManagedServer.ts](../../apps/cli/src/backends/opencode/server/sharedManagedServer.ts), [openCodeManagedServerEnv.ts](../../apps/cli/src/backends/opencode/server/openCodeManagedServerEnv.ts) | Ordinary operation intentionally preserves user config/auth; its environment isolation is insufficient for this credential-free experiment |
+
+Retained V1/ACP paths are existing provider compatibility paths, not new authorities added by this fixture. The fixture calls native V2 directly to measure its external contract; it is ignored development code and is not an alternative production adapter. Production, protocol, PTY, root configuration, lockfiles and `COMPATIBILITY.md` remain untouched. The [approved trust direction](REQUEST_PROTOCOL.md) is a separate coordinator-owned implementation boundary.
+
+## Re-derived native contracts
+
+Observed in the pinned [OpenAPI](https://github.com/anomalyco/opencode/blob/6f3639d82ed0760091792189b78f8eeb44f699b1/packages/protocol/openapi.json):
+
+| Operation | Request and expected native result |
+| --- | --- |
+| `POST /api/session` | `{title, location:{directory}, permissions:[{action:"companion_fixture",resource:"*",effect:"ask"}]}`; returns `{data: session}` |
+| `POST /api/session/{sid}/permission` | `{id,action:"companion_fixture",resources:["tc-ach.4/no-tool"]}`; returns `{data:{id,effect}}`; require `effect:"ask"` and that exact request in pending inventory |
+| `POST /api/session/{sid}/permission/{rid}/reply` | `{decision:"once"}`; success 204, stale/mismatched pending request 404 |
+| `POST /api/session/{sid}/form` | `{id,title,fields}`; returns native form; fixture includes a closed choice and required text field |
+| `POST /api/session/{sid}/form/{fid}/reply` | `{answer:{choice:"remote",note:"remote-text"}}`; success 204, already settled 409 while retained, missing record 404 |
+| `GET /api/session/{sid}/form/{fid}` | Native detail includes `state.status` and, when answered, `state.answer` |
+| `GET /api/event` | Volatile SSE stream; events missed while disconnected require current-state reconciliation |
+
+The [permission HTTP handler](https://github.com/anomalyco/opencode/blob/6f3639d82ed0760091792189b78f8eeb44f699b1/packages/server/src/handlers/permission.ts) checks session ownership of the request before replying. Native [Permission.ask](https://github.com/anomalyco/opencode/blob/6f3639d82ed0760091792189b78f8eeb44f699b1/packages/core/src/permission.ts#L223) creates an actual pending request and publishes its event, then returns. Unlike `Permission.assert`, that API path has no model tool waiting on the deferred result. This is why no inference is needed and why a successful reply cannot prove tool continuation.
+
+The pinned [form owner](https://github.com/anomalyco/opencode/blob/6f3639d82ed0760091792189b78f8eeb44f699b1/packages/core/src/form.ts#L105) gives pending entries infinite cache retention while that owner lives, and settled entries the [10-minute native retention](https://github.com/anomalyco/opencode/blob/6f3639d82ed0760091792189b78f8eeb44f699b1/packages/core/src/form.ts#L8). Native location shutdown can still cancel a pending form and dispose its owner. A later 404 is not by itself proof of which lifecycle removed the record. These are native contracts, not a fixture TTL or permission to answer a successor.
+
+The fixture preserves immutable aliases and previously observed terminal details in `terminalFormEvidence`. Ordinary snapshots reuse those details with an explicit `historicalFormIds` label, while reading unresolved requests and successors from native state. A missing unresolved record fails; it is never inferred to have settled. Form 204 and 409 replies require an immediate fresh target read and state assertion. A later 404 replay is permitted only for a form already observed settled; its captured terminal evidence and the successor's current inventory/details must remain unchanged. No fixture clock predicts expiry, and a historical detail is not presented as a current native read.
+
+Native [permission reply](https://github.com/anomalyco/opencode/blob/6f3639d82ed0760091792189b78f8eeb44f699b1/packages/core/src/permission.ts#L265) and [form reply](https://github.com/anomalyco/opencode/blob/6f3639d82ed0760091792189b78f8eeb44f699b1/packages/core/src/form.ts#L176) publish before removing/updating pending state. Derived: `Effect.uninterruptible` and a successful HTTP reply are insufficient evidence of single-winner arbitration. This is **not** a finding that a race defect exists. Capture competing native events and final state; duplicate/conflicting outcomes fail the experiment. Permission rejection also rejects other pending permissions in that session, so this fixture intentionally has at most one pending request at a time.
+
+The [native TUI permission component](https://github.com/anomalyco/opencode/blob/6f3639d82ed0760091792189b78f8eeb44f699b1/packages/tui/src/routes/session/permission.tsx#L136) and [form component](https://github.com/anomalyco/opencode/blob/6f3639d82ed0760091792189b78f8eeb44f699b1/packages/tui/src/routes/session/form.tsx#L269) reply through the same native session/request APIs. Both rendered on native Windows. Exact draft restoration was observed after the remote permission response in run 8c75d7fd and the remote form response in run 5a0b4c97. Remote ordinary chat submission, model-backed request continuation and the production adapter were not exercised by these observations.
+
+## Isolation and lifecycle
+
+Observed [explicit-server resolution](https://github.com/anomalyco/opencode/blob/6f3639d82ed0760091792189b78f8eeb44f699b1/packages/cli/src/services/server-connection.ts#L23) returns after an authenticated info request, before `Service.ensure`. The [foreground server path](https://github.com/anomalyco/opencode/blob/6f3639d82ed0760091792189b78f8eeb44f699b1/packages/cli/src/server-process.ts#L59) avoids service registration. The proposed topology is one session-owning backend plus its connected native TUI, not two backends resuming saved history.
+
+The runner builds a child environment from an explicit allowlist. It assigns fresh disposable HOME/USERPROFILE/HOMEDRIVE/HOMEPATH, APPDATA/LOCALAPPDATA, TEMP/TMP, all four XDG roots, `OPENCODE_TEST_HOME`, `OPENCODE_CONFIG_DIR` and an empty `OPENCODE_MODELS_PATH` catalog. PATH contains only Windows System32. It copies no inherited provider credentials, proxy, OTEL, Node options, Git/SSH/cloud configuration or OpenCode environment. No dependencies are installed or linked.
+
+The inline configuration is serialized with `JSON.stringify`, correcting the malformed example in the earlier research comment:
+
+```json
+{
+  "warming": false,
+  "plugins": [
+    "-opencode.provider.lmstudio",
+    "-opencode.provider.ollama",
+    "-opencode.provider.vllm"
+  ]
+}
+```
+
+Pinned [plugin parsing](https://github.com/anomalyco/opencode/blob/6f3639d82ed0760091792189b78f8eeb44f699b1/packages/core/src/config/plugin/source.ts#L113) and [supervisor selection](https://github.com/anomalyco/opencode/blob/6f3639d82ed0760091792189b78f8eeb44f699b1/packages/core/src/plugin/supervisor.ts#L37) implement these removal entries before activation. They address the built-in probes of localhost ports 1234, 11434 and 8000. Guarded policy plugins remain enabled.
+
+`OPENCODE_DISABLE_AUTOUPDATE=1` stops [automatic updater inspection](https://github.com/anomalyco/opencode/blob/6f3639d82ed0760091792189b78f8eeb44f699b1/packages/cli/src/services/updater.ts#L427). `OPENCODE_DISABLE_MODELS_FETCH=1` and `OPENCODE_CONFIG_PROJECT_DISABLE=1` reach the models/config owners through `server-process.ts`. Explicit refresh/update actions are separate and forbidden. These switches do **not** certify universal offline operation. Unexpected model/discovery/updater/service activity is a failed observation, not permission to change firewall/security settings.
+
+The cwd is a newly created OS-temp directory outside every Git/Hg ancestor; the fixture checks ancestor metadata without reading user configuration. This matters because [TUI plugin discovery](https://github.com/anomalyco/opencode/blob/6f3639d82ed0760091792189b78f8eeb44f699b1/packages/tui/src/plugin/discovery.ts#L8) scans repository `.opencode/plugins` independently of the server's project-config switch. Fresh data/config roots are required as well as a fresh database. Native containment and Windows ACL behavior remain unmeasured; this is not an OS-user security boundary.
+
+The server binds explicit `127.0.0.1` with port 0, giving the OS port selection. A fresh random password remains in parent/child memory. API requests use Basic auth; the TUI receives that same password only in its isolated environment. The pinned [server dispatch](https://github.com/anomalyco/opencode/blob/6f3639d82ed0760091792189b78f8eeb44f699b1/packages/server/src/process.ts#L177) authenticates even during startup. The fixture requires both missing and wrong auth to receive 401 for info and session creation before starting the TUI. No secret appears in argv, URLs or persisted environment snapshots; evidence redacts both password and Basic encoding.
+
+The runner retains direct `ChildProcess` handles, without detached children, extra PTY wrappers, PID-file reuse or process-name searches. Public PIDs are diagnostic only. It observes native exit and stream closure and never opens a new termination handle from a recorded PID. Corrected cleanup waits for native TUI exit first, requests observer abort, then initiates retained idle-sidecar termination without waiting for SSE completion. It awaits every direct child's closure and observer completion before reporting stopped. Observer rejection is handled from the start, and failed termination remains failed/pending on the same handle. No timeout, PID fallback, process-tree kill or parallel lifecycle owner was added. Closing/crashing the runner's terminal can lose these handles and is not certified safe. Do not force-kill the runner or use `Stop-Process`, `taskkill`, name matching or a stale saved PID as cleanup.
+
+Cleanup catches failed status/journal writes, keeps failed state, emits redacted terminal diagnostics and continues waiting for the native TUI, observer shutdown and retained children. An unwritable cleanup-pending status cannot abandon a child. Final persistence failure still removes signal hooks and returns failure; it reports evidence persistence incomplete instead of claiming the evidence was retained. The status file may remain stale in this case. The strengthened consumed-cleanup check uses actual failing filesystem writes and an external stream boundary that remains pending on abort until backend closure, then waits for separately released stream drainage. It also verifies that cleanup cannot kill the TUI or declare stopped before drainage. Run 5a0b4c97 observed this owned native cleanup after a periodic status-save failure: TUI exit first, retained backend closure, observer completion and a failed terminal result. Its final status write succeeded sufficiently to retain that failure and closed-child state. The earlier recovered run remains a separate cleanup failure.
+
+## Recorded attended recipe — no execution authorized
+
+Sources in this worker worktree:
+
+- `.companion-local/tc-ach.4/fixture.mjs`: isolated environment, native payloads, bound replies and SSE framing.
+- `.companion-local/tc-ach.4/probe.mjs`: attended native launch, API operations, observations and owned-handle cleanup.
+- `.companion-local/tc-ach.4/fixture.test.mjs`, `openapi.test.mjs` and `probe.test.mjs`: preparation checks only.
+
+The coordinator completed the bounded native observations above and all run-owned children are closed. This documentation pass authorizes no fixture fix, retry or further native work. The reviewed launch command is retained for reproducibility; any later execution requires a separate scoped grant, from this worktree with `exec_command` and `tty:true` and a new retained terminal handle:
+
+```powershell
+& 'C:/Program Files/Git/bin/bash.exe' ./apps/stack/bin/hstack-exec -- node .companion-local/tc-ach.4/probe.mjs run --native-reviewed 30000
+```
+
+The flag records operator intent; it does not grant authorization. `30000` is a fixture observation bound in milliseconds for startup/HTTP/command acknowledgement, not a product request expiry or whole-experiment deadline. An elapsed controller wait means pending, never safe-to-retry. The script fails if stdin/stdout are not interactive. It launches only the exact acquired binary for `--version`, `--help`, `serve --help`, one foreground server and one explicitly attached TUI. It never invokes a model, tool, provider login, updater action, shell API, service command or resumed second backend.
+
+Coordinator-reported observation: a routed Node script in native Windows `exec_command` with `tty:true` returned stdin/stdout/stderr TTY flags all true and exit 0 (root `.companion-local/tc-ach.4/terminal-capability.cjs`, tool `22c7b8`). The earlier inline `-p` failure was shell quoting before evaluation, not negative TTY evidence. This capability was not re-executed by this writer and does not prove native OpenCode UI or Android behavior. The existing runner can use that tool terminal; no headless mode or mandatory manual user action is added. Two attended native terminals also use the same recipe.
+
+Record the printed evidence/control directory. In separate controller commands from the same worktree:
+
+```powershell
+$OpenCodeRun = 'COPY THE EXACT PRINTED runs/<UUID> DIRECTORY'
+function Probe {
+  & 'C:/Program Files/Git/bin/bash.exe' ./apps/stack/bin/hstack-exec -- node .companion-local/tc-ach.4/probe.mjs send $OpenCodeRun @args
+}
+Probe snapshot
+```
+
+Use one controller, one command at a time, and wait for each acknowledgement. For separate tool calls, pass the exact run directory each time; PowerShell variables/functions are local to that shell invocation. It communicates through fixture files, not another control service. `status.json` identifies the original server/TUI handles, native session and every immutable request alias. `evidence.jsonl` records request start/result, native SSE, snapshots with explicitly labeled historical form details and separately labeled operator observations. Logs contain synthetic data; review before sharing. No aggregate PASS is emitted, including on a clean exit.
+
+Before requests, observe the native session title and TUI usability, and verify startup/config logs. While the original handles remain live, use read-only Windows TCP observations filtered to their recorded PIDs to look for unexpected peers, including the three forbidden local discovery ports. A point-in-time TCP view can miss transient connections and cannot prove no egress; report that limitation. Do not inspect ambient provider sessions or reuse another endpoint. Stop on a mismatch, provider/login prompt, updater action or unexpected activity. This preparation does not claim actual startup egress was measured.
+
+The recorded controller/native sequence in run 5a0b4c97 was:
+
+1. Type `DRAFT-TC-ACH4-UNSENT` without submitting it. Send `new form f-fresh`, observe the actual structured fields, then send `reply f-fresh 204`. Both controller commands exited 0. The native event, fresh answered state and exact restored draft agree. The form was still pending at the reply's preflight read. Creation at 01:20:43 and response at 01:25:36 are observed times, not a product deadline or keepalive policy.
+2. Send `new permission p-local`, answer the displayed native `Allow once` with Enter, then send `snapshot` and `new permission p-next` sequentially. Each controller command exited 0. Native permission events and snapshots establish the retired old ID and new pending successor.
+3. Send `reply p-local 404`; the controller exited 0 because the expected stale rejection and unchanged successor assertions held. The native terminal still displayed the successor prompt. Later Tab/right-arrow attempts provide no proven local resolution; the journal instead records rejection alongside native location shutdown.
+4. After the fixture's periodic-save failure, choose the native command palette's `Exit the app`. Cleanup was already waiting for local TUI exit; the retained backend and observer then closed without a new `stop` acknowledgement or exceptional recovery. The native executor returned 1, with failed/stopped final state. The separate controller exited 0 on `quit`.
+
+For a separately authorized healthy run, the normal recipe remains native TUI exit followed by `Probe stop` and waiting on the original executor. A stop acknowledgement alone is not cleanup completion. Require direct children closed, observer completed and a terminal result consistent with stopped/failed state. Preserve failures and disposable roots. Never reuse a historical URL, session, handle or PID; if closure remains pending, preserve the original retained handles and diagnostics for the coordinator. The old recovery script is not a general fallback.
+
+## Scenario recipes and deciding evidence
+
+The following recipes remain as a reference for review and later separately scoped work. Remote permission/draft is observed in run 8c75d7fd; remote form/draft and sequential local-first permission rejection are observed in run 5a0b4c97. Form local-first/stale replies, concurrent races and observer loss/reconnect remain unrun. No row authorizes another execution.
+
+Never press Enter in an ordinary chat draft, select a model/login/update/plugin action, or choose persistent/always approval. Local permission answers use the native once/reject controls; local forms use `Local` and `desktop-text`. No keyboard injection is involved. If the native TUI cannot present an API-created request without a model, preserve that negative result and stop; do not add a fake transcript or model call.
+
+| Scenario | Exact controller sequence and required observation |
+| --- | --- |
+| Remote permission | `Probe new permission p-remote`; observe the sole native prompt with `companion_fixture` / `tc-ach.4/no-tool`; `Probe reply p-remote 204`. Require its matching native reply event, absence from pending inventory and continued native TUI interaction |
+| Remote structured question | `Probe new form f-remote`; observe both actual fields; `Probe reply f-remote 204`. Require native detail `answered` with the exact remote choice/text and matching form event |
+| Local-first permission, identical successor | `Probe new permission p-local`; answer **once locally**, then `Probe snapshot`. Only after settlement: `Probe new permission p-next`; `Probe reply p-local 404`. The identical successor has a different native ID and must remain pending and locally answerable. Settle p-next locally |
+| Local-first form, identical successor | `Probe new form f-local`; answer locally, then `Probe snapshot` to capture terminal state. `Probe new form f-next`; `Probe reply f-local 409` within native retention. The old detail must retain the local answer and f-next must remain pending. A later replay after native eviction may expect 404 only with that captured terminal evidence. Settle f-next locally |
+| Permission race attempt | `Probe new permission p-race`; issue `Probe reply p-race race` while the desktop operator answers locally. Record native reply events and pending state. Require one effective outcome for the exact ID; duplicate/conflicting outcomes fail |
+| Form race attempt | `Probe new form f-race`; issue `Probe reply f-race race` while local form submission uses the different local answer. Final detail and native events must agree on a single answer; a second stale attempt must not change it |
+| Desktop draft | At an empty native chat input, type `DRAFT-TC-ACH4-UNSENT` without submitting. Retain before/after native screen captures and the input trace while remotely resolving a new permission and then a new form. The exact draft and ability to edit it must survive. Clear it using the native input control without sending it |
+| Observer loss/reconciliation | `Probe new permission p-gap`; `Probe disconnect`; answer locally and continue editing the native draft. `Probe reconnect` reads current inventory. `Probe reply p-gap 404` must stay stale. Repeat with `new form f-gap`, local answer during disconnect and `reply f-gap 409` within native retention; settled detail must remain the local answer. Reconnect must capture that terminal state before eviction; otherwise the missing unresolved record fails |
+| Native deny/cancel | Create one fresh request, use local reject/cancel, snapshot, then try the old alias with expected permission 404 or form 409 within native retention. A later known-settled form may return 404. No approval or next-prompt effect is allowed |
+
+The controller's `race` expectation permits either the successful or stale HTTP status and records it without interpreting a winner. A scheduled near-simultaneous attempt is not automatically proof of overlap. Retain native input timing/screen evidence and the API start/result interval; if contention cannot be established, mark the race gate unverified. Event/state disagreement is a failure even when HTTP succeeds. The UI need not print a raw native ID: join its sole prompt and synthetic action/fields to the recorded session inventory, and retain before/after UI evidence. A screenshot or process-start line alone cannot establish this join.
+
+Drive local answers and draft edits through the original native TUI terminal handle, retaining its native input/output; use separate file-controller calls for API replies. Record observations with `Probe observe <checkpoint> pass|fail|unverified`, for example `Probe observe draft-after-form fail`. These are explicitly operator observations, not automated assertions. A failed observation prevents further mutations; snapshot and stop remain available. The runner checks backend/session identity, unchanged fixture permissions, zero recorded cost/tokens and pending inventories at request boundaries. Successful replies must remove the pending ID, and successful form replies must agree with freshly read native answer state. Every stale reply must preserve successor inventory/details, including stale race results; leave the successor untouched until that command acknowledges. Race attempts retain their separate event-review requirement. Zero recorded cost/tokens is supporting evidence, not independent proof no network request occurred.
+
+For normal cleanup, quit the original TUI through its native exit control, then run `Probe stop`. The original terminal must return with all owned children closed and, when persistence succeeds, `status.json` marked stopped. `stop` while the TUI is still live waits for native exit and disables further mutations. If evidence cannot be saved, retain the original terminal's redacted failure output and nonzero result; an old status file is not cleanup proof. Nonzero exits, lost events and failed checks remain failures. Disposable roots and evidence are retained; no recursive cleanup is part of the recipe. Any later deletion must name and verify the exact owned path separately.
+
+## Preparation validation and remaining gates
+
+Observed on native Windows with Node 22.14.0, using this checkout's routed executor:
+
+```powershell
+& 'C:/Program Files/Git/bin/bash.exe' ./apps/stack/bin/hstack-exec -- node --check .companion-local/tc-ach.4/probe.mjs
+& 'C:/Program Files/Git/bin/bash.exe' ./apps/stack/bin/hstack-exec -- node --check .companion-local/tc-ach.4/probe.test.mjs
+& 'C:/Program Files/Git/bin/bash.exe' ./apps/stack/bin/hstack-exec -- node --test .companion-local/tc-ach.4/fixture.test.mjs .companion-local/tc-ach.4/openapi.test.mjs .companion-local/tc-ach.4/probe.test.mjs
+```
+
+Syntax checks succeeded. The original eight preparation tests remain: environment construction, exact reply binding, endpoint restriction, fragmented/error SSE handling, secret redaction, repository-cwd refusal, pinned OpenAPI payload validation and rejection of V1 payloads. Six additional checks exercise consumed cleanup despite actual filesystem failures, pending owned cleanup/observer failure, external terminal-form eviction, missing unresolved/fresh state, stale successor preservation and fresh matching answer assertions. All 14 passed after the corrections. The regression RED run reproduced both cleanup bypasses and the expired-form snapshot failure; an intermediate check had a test-only shared-object aliasing error, corrected before the final successful run. Logs are retained under the owned ignored directory and identified in HANDOFF.md. These checks execute no provider and establish no native product gate. Production behavior was not changed, so no production RED/GREEN claim is made.
+
+After the coordinator's version-only failure, a new harmless regression through the actual consumed `assertNativeVersion` reproduced rejection of the observed output (`version-admission-red.log`: 1 failed, 6 passed). The exact-line correction then passed all 15 preparation checks, retaining the previous 14 (`version-admission-green.log`: exit 0, no failures/skips); runner and test syntax checks also passed. The regression rejects wrong, combined and duplicate versions as well as extra text/lines. No native subprocess was launched by these checks, and the failed native run remains failed.
+
+For the cleanup ordering correction, the existing consumed-cleanup test was strengthened instead of adding another framework. `cleanup-order-red.log` records exit 1, 1 failed/6 passed: the owned backend remained open because SSE completion was awaited first. After the correction, `cleanup-order-green.log` records 7 passed; `cleanup-order-adjacent.log` records all 15 preparation checks passed, no failures/skips, including prior evidence-write failures, native TUI nontermination, version admission and form assertions. Runner/test syntax checks passed. No real child, network listener or provider was executed by these checks. These are historical results for the unchanged fixture, reused without rerunning tests during this documentation-only pass. Run 5a0b4c97 subsequently observed owned native cleanup after local TUI exit, while preserving its periodic status-save failure and exit 1.
+
+Existing attach-argument, dialect, shared-local-control, native supervisor, V2 client and HTTP lifecycle tests were inspected but not executed; this worktree has no installed dependencies and none were installed/linked. Package typecheck/build and Android/live gates were not run. Do **not** run `runtime.real.integration.test.ts` unchanged: its cleanup reads an ambient managed-server state path and terminates the recorded PID. The prepared runner uses no such state.
+
+Public web-reader retrieval failed for the pinned raw source URLs; routed read-only Node HTTPS retrieved them successfully. A guessed `packages/cli/src/config.ts` returned 404; the pinned tree resolved the actual owner `packages/cli/src/config/config.ts`. No source contract was inferred from those retrieval failures. Beads operations succeeded against the shared root DB but emitted the existing workspace-gate warning (`Access is denied`); this is not evidence that its optional workspace gate ran.
+
+Remaining gates: production adapter integration; model-backed native pending requests and tool continuation; form local-first/stale replies and concurrent answer races; remote ordinary chat submission without disturbing the desktop draft; cancellation/local-resolution reconciliation (tc-ach.31); observer loss/reconnect; phone enrollment/device authorization, physical Android and multiple machines. The explicit observation-gap `disconnect` command still awaits its stream without terminating the live backend; its native completion is unverified. ACL containment, relevant egress and relay/sync failure isolation remain unmeasured. The Windows status-file rename denial is a separate unresolved fixture failure, with no cause beyond EPERM established and no fix/retry authorized here.
+
+The observed native API request/draft/identity slices and owned cleanup are bounded research evidence. They do not close a provider or pilot gate. The coordinator may review and integrate the research record with these explicit limits; tc-ach.4 remains in progress until that decision. This writer stops after documentation and handoff, without further native execution.
