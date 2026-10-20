@@ -780,6 +780,50 @@ and review any fixture correction before another native run. Do not silently
 fall back to a shell, normalize an unknown tool into authority, or interpret
 this failed experiment as evidence about local/remote permission arbitration.
 
+### Subscription and live-thread evidence (2026-10-20)
+
+**Source findings, independently reviewed; no further native run.** In pinned
+`rust-v0.160.0`, public [`thread/start`](https://github.com/openai/codex/blob/rust-v0.160.0/codex-rs/app-server/src/request_processors/thread_processor.rs#L1490)
+attaches its creating connection and separately broadcasts `thread/started`.
+Receiving that broadcast on an already initialized second client does not
+subscribe it to turn, item or approval delivery. The fixture's earlier automatic
+subscription assumption is refuted. Metadata polling remains valid evidence of
+metadata access, not of shared response control.
+
+The loaded-thread branch of `thread/resume` retains the existing native thread
+and adds the connection, but the same RPC can fall through to cold history
+reconstruction. `excludeTurns: true` suppresses returned history; it does not
+disable that fallback. Native [`sessionId`](https://github.com/openai/codex/blob/rust-v0.160.0/codex-rs/core/src/session/session.rs#L857)
+can be restored from metadata, so unchanged thread ID, session ID and backend PID
+do not prove uninterrupted runtime incarnation. Even the warm branch reads
+stored metadata, which may be absent for an untouched empty thread. An error must
+stop the experiment rather than trigger hydration, retargeting or a retry.
+
+Existing diagnostics offer a positive observation for a new disposable experiment:
+the [`composing running thread resume response`](https://github.com/openai/codex/blob/rust-v0.160.0/codex-rs/app-server/src/request_processors/thread_lifecycle.rs#L591)
+debug event identifies the live response path. It must be correlated with the
+same connection/request's successful RPC response after attachment. The
+[`resume_thread_with_history`](https://github.com/openai/codex/blob/rust-v0.160.0/codex-rs/core/src/thread_manager.rs#L1257)
+trace span identifies a cold reconstruction attempt. Narrow JSON stderr logging
+is supported by the existing App Server logger. These are post-execution
+observations, not an atomic cold-path fence; the installed binary's diagnostic
+availability and a successful live join remain untested. Earlier fixtures only
+counted stderr bytes and cannot supply this evidence retrospectively.
+
+The unknown fixture model also lacks the bundled patch capability supplied by
+`gpt-5.5`. Correcting that fixture configuration alone is insufficient: native
+unnamed-thread title generation can create a separate tool-free thread. This is
+a source-supported alternative explanation, not identification of the second
+thread or the first rejected HTTP request in the failed run above. No unretained
+request body has been reconstructed.
+
+Ignored fixture preparation added redacted request provenance and requires a
+matching observed native thread/turn before returning synthetic model output.
+Both consumed preparation checkers recorded RED then GREEN; four syntax checks
+passed. Exact artifacts are `topology-*.log` and `HANDOFF.md` under the Codex
+worktree's `.companion-local/tc-ach.5/`. Permission replay remains blocked on
+reviewed attachment and background-request scope. No acceptance gate passes.
+
 ## Remaining real-account experiment for approval
 
 The no-credential two-client transport prerequisite **has passed** in the
@@ -828,10 +872,13 @@ integration and graceful lifecycle handling remain unverified.
 After the upgrade, the response driver sends `initialize` with a unique
 `clientInfo` and `capabilities.experimentalApi=true`, waits for success, then
 sends `initialized`.
-Use `thread/loaded/list` to identify the TUI's freshly created thread and
-`thread/resume` with that exact `threadId` on **this same endpoint**. Do not import
-history into a second backend. Prove unchanged backend PID/endpoint/thread before
-and after attachment; if attachment changes them, the experiment fails.
+Use `thread/loaded/list` to identify the TUI's freshly created thread. The proposed
+`thread/resume` attachment on **this same endpoint** is blocked by the live/cold
+distinction described above until its exact fixture and evidence are reviewed.
+Do not import history into a second backend. Compare backend/endpoint/thread
+before and after, but do not treat matching IDs as an incarnation proof. Require
+positive live-branch evidence and correlated successful attachment before any
+permission experiment; missing evidence or cold reconstruction fails admission.
 
 1. Request a harmless, approval-requiring write of a single marker in the
    disposable fixture. The provider must emit a structured request under the
