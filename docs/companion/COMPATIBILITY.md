@@ -26,6 +26,8 @@ The Codex test failure is another inherited POSIX path expectation at `createCod
 
 Claude research identified premature `PermissionRequestCompleted` publication in both `runClaude.ts` callbacks, tracked in **tc-ach.28**. The subsequent development correction consolidates those callbacks around an awaited bridge promise. Its composed regression recorded **3 RED failures then 3 GREEN passes**, with **133 adjacent tests and CLI typecheck passing** on Windows; [exact commands and limits](CLAUDE_WINDOWS.md#development-lifecycle-correction-tc-ach28) remain in the provider record. This corrects observed premature input eligibility, not an observed unsafe native write, and remains **IMPLEMENTED_NOT_VERIFIED** at the native TUI/phone boundary. Missing HTTP cancellation propagation, transcript-based ID reuse, provider application acknowledgement and A20 launch-policy differences remain separate native/security obligations.
 
+Later Claude fixture preparation passed **seven preload/parameter checks, six real-owner composition checks, six pure controller checks and eleven corrected Windows process-observer checks**. The preserved observer baseline has **six passes / five failures**; two cleanup failures were manually adjudicated from raw process/error evidence while the automated classifier remains inconclusive. [Exact failures, commands and boundaries](CLAUDE_WINDOWS.md#preparation-boundary-2026-10-19) distinguish disposable Node/PowerShell observation from native Claude. **Ross deferred credentialed Claude testing on 2026-10-19**. No native permission, cancellation, draft or phone acceptance follows from these fixtures.
+
 ## Component and environment identity
 
 | Component | Observed version or state | Compatibility implication |
