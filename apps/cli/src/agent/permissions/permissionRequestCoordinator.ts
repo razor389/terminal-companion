@@ -273,7 +273,10 @@ export class PermissionRequestCoordinator<TResult> {
         if (this.isRequestClaimed(context.requestId)) return false;
         const entry = this.pendingRequests.get(context.requestId);
         if (entry) {
-            if (entry.completionInProgress) return false;
+            // Native lifecycle cancellation must release its waiter even while a
+            // remote decision awaits projection ACK. Removing this entry also
+            // prevents that decision from completing when the ACK arrives.
+            if (entry.completionInProgress && completion.completedRequest.status !== 'canceled') return false;
             this.store.completeRequest({
                 ...this.buildEntryCompletion(entry, completion),
             });
