@@ -11,6 +11,14 @@ rerun exited 1: **9 passed, 1 failed, 4 Windows skips**. The failure is a
 pre-existing POSIX fixture assumption. CLI typecheck passed. Node socket `stat`
 still returned `EACCES` outside the worker sandbox; native proxy access succeeded.
 
+A later account-free native permission experiment on **2026-10-19** reached the
+original TUI/thread, then failed at the synthetic model boundary: the first
+request did not advertise the exact custom `apply_patch` shape required by the
+fixture. All HTTP attempts were rejected; no patch response or permission
+decision was sent. The marker stayed absent and all retained direct children
+closed. This is a fixture compatibility finding, not negative permission
+feasibility or a passing response gate.
+
 The subsequent no-credential TUI-fixture attempt stopped at **PTY lifecycle
 admission**: native `--version` printed through ConPTY, but the repository relay
 did not close, including after stdin EOF. A later direct-backend diagnostic
@@ -710,6 +718,67 @@ complete history, model continuation, remote input or draft preservation during
 remote delivery. Permissions, questions, native arbitration, stale/incarnation
 responses and physical-device gates remain unverified. Earlier failed attempts
 retain their recorded dispositions.
+
+### Native permission fixture rejected tool advertisement (2026-10-19)
+
+After independent review, the coordinator ran the ignored finite denial fixture
+under a separate scoped grant: one local prompt, two possible synthetic loopback
+Responses exchanges and one exact structured decline. It retained read-only /
+on-request policy, a fresh account-free home/project, the original TUI, and the
+same pinned 0.160.0 App Server/proxy transport. It could not forward to a real
+provider, substitute a shell tool, relax policy or retry a response decision.
+
+From the Codex worktree, after resolving the known system configuration directory
+as in the earlier recipe, the exact command was:
+
+```powershell
+& 'C:/Program Files/Git/bin/bash.exe' ./apps/stack/bin/hstack-exec -- node .companion-local/tc-ach.5/native-tui-no-prompt.cjs --reviewed-run --observe-ms 60000 --system-config-dir $systemConfigDirectory --permission-deny
+```
+
+The original composer submitted exactly once:
+
+```text
+Use apply_patch to add tc-ach5-denied-marker.txt containing tc-ach5-deny-fixture. Do nothing else.
+```
+
+Run `tui-permission-deny-5esMTn` admitted two fully checked metadata samples on
+backend 8808, original TUI 34800 and thread
+`01a1562c-a841-7103-9fde-d9b1f8e66eee`; proxy 6352 was the second client. These PIDs
+are historical evidence, never authority to signal another process. At
+22:17:02.476 UTC, the first model request failed `http.tool_advertised`: it did
+not contain exactly one top-level custom `apply_patch` tool with a Lark grammar.
+The body was not retained, so the trace does not distinguish absent capability
+from a different advertisement shape. A synthetic-model capability mismatch is
+a hypothesis requiring pinned-source evidence.
+
+The trace also records a second `native-thread-started` identity,
+`01a1563d-5512-7273-a0aa-e381cdd4add4`, at 22:17:02.520 UTC, immediately after the
+first rejection. Its cause and relationship to the submitted turn are
+unexplained; no permission turn/request was observed by the response client.
+The earlier metadata identity does not establish the executing turn's binding.
+
+The fixture rejected that request and eleven further HTTP attempts with HTTP 403;
+the later rejections followed its failed-authority state. It emitted **zero** SSE
+tool responses and **zero** structured permission decisions. The TUI displayed
+the 403 failure and returned to its composer; the coordinator sent local Escape
+and then Ctrl+C. TUI exit 0 preceded retained proxy/backend termination and
+their close events. The final trace at 23:28:47.663 UTC records marker absence,
+`allOwnedChildrenClosed: true`, `BLOCKED_OR_INCOMPLETE` and internal result code
+2. The enclosing executor reported exit 1. Neither is a successful experiment.
+No post-denial draft or native response/application claim follows.
+
+Raw evidence is the worktree's
+`.companion-local/tc-ach.5/tui-permission-deny-5esMTn/events.jsonl` and integration
+`.companion-local/tc-ach.5/native-terminal-5esMTn.json`. Request bodies, headers
+and credential values were not logged. The preceding preparation correction
+has two meaningful RED/GREEN checks: a failed final config read or changed
+policy cannot credit a metadata/post-denial sample. Both preparation checkers
+and four syntax checks passed; this validates fixture admission only.
+
+The next bounded step is to characterize the pinned model/tool advertisement
+and review any fixture correction before another native run. Do not silently
+fall back to a shell, normalize an unknown tool into authority, or interpret
+this failed experiment as evidence about local/remote permission arbitration.
 
 ## Remaining real-account experiment for approval
 
