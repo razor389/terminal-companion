@@ -861,6 +861,47 @@ rollout materialization, and needs its own reviewed native grant; it must not
 be raced against the current automatic join or substituted
 silently. This experiment passes no product acceptance gate.
 
+### Named-thread response composition reached; join still rejected (2026-10-21)
+
+**Failed experiment; no shared-control gate passes.** The fresh disposable
+`tui-named-join-only-lQbwPf` run used the preceding command with
+`--named-join-only` instead of `--join-only`. After initial observations, the
+coordinator entered the native `/rename tc-ach5-permission` command once. The
+fixture observed the exact thread's naming-completion notification and matching
+name in a complete metadata sample before sending one `thread/resume` with
+`excludeTurns: true` and no initial history page.
+
+This time the native `composing running thread resume response` diagnostic
+matched the pending RPC, thread and connection. The same RPC then returned
+`-32600`, classified only as `unclassified`; there was no successful join
+response. Naming completion and the diagnostic format are observed evidence.
+They do not establish a successful subscription or permission response.
+
+There were **zero model HTTP requests**. Local CTRL+C exited the original TUI
+with status 0; the retained proxy/backend handles and diagnostic stream then
+closed. All three owned direct children closed. Final fixture result:
+`2 / BLOCKED_OR_INCOMPLETE`; enclosing executor: exit 1. Evidence is the Codex
+worktree's `.companion-local/tc-ach.5/tui-named-join-only-lQbwPf/events.jsonl`
+and the integration checkout's `native-terminal-lQbwPf.json`,
+`native-terminal-lQbwPf-rename.json` and `native-terminal-lQbwPf-exit.json`
+under `.companion-local/tc-ach.5/`.
+
+Pinned source places the closing-thread check after that diagnostic and
+`try_add_connection_to_thread` before backwards-cursor generation
+(`codex-rs/app-server/src/request_processors/thread_lifecycle.rs:691–730`). A
+cursor error can therefore follow attachment; this failed response does not
+prove that no subscription was installed. Missing rollout lineage remains a
+source-derived hypothesis, not the established error cause. Absence of a cold
+diagnostic remains insufficient to fence cold reconstruction.
+
+For a paginated thread, cursor generation depends on stored history mode, not
+`excludeTurns`. Omitting that flag also persists and hydrates all history.
+Keeping `excludeTurns: true` and adding experimental `initialTurnsPage` with an
+explicit limit and `itemsView: "notLoaded"` limits history observation to a page,
+but still persists the thread and traverses lineage. Neither alternative ran
+in this experiment. Either needs a reviewed fixture and a fresh native grant
+covering its changed storage/observation scope; neither is an incarnation fence.
+
 ## Remaining real-account experiment for approval
 
 The no-credential two-client transport prerequisite **has passed** in the
