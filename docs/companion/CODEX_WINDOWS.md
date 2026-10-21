@@ -782,7 +782,7 @@ this failed experiment as evidence about local/remote permission arbitration.
 
 ### Subscription and live-thread evidence (2026-10-20)
 
-**Source findings, independently reviewed; no further native run.** In pinned
+**Source findings, independently reviewed before the join attempt below.** In pinned
 `rust-v0.160.0`, public [`thread/start`](https://github.com/openai/codex/blob/rust-v0.160.0/codex-rs/app-server/src/request_processors/thread_processor.rs#L1490)
 attaches its creating connection and separately broadcasts `thread/started`.
 Receiving that broadcast on an already initialized second client does not
@@ -807,7 +807,7 @@ same connection/request's successful RPC response after attachment. The
 trace span identifies a cold reconstruction attempt. Narrow JSON stderr logging
 is supported by the existing App Server logger. These are post-execution
 observations, not an atomic cold-path fence; the installed binary's diagnostic
-availability and a successful live join remain untested. Earlier fixtures only
+availability on the successful branch and a successful live join remain unverified. Earlier fixtures only
 counted stderr bytes and cannot supply this evidence retrospectively.
 
 The unknown fixture model also lacks the bundled patch capability supplied by
@@ -823,6 +823,43 @@ Both consumed preparation checkers recorded RED then GREEN; four syntax checks
 passed. Exact artifacts are `topology-*.log` and `HANDOFF.md` under the Codex
 worktree's `.companion-local/tc-ach.5/`. Permission replay remains blocked on
 reviewed attachment and background-request scope. No acceptance gate passes.
+
+### Empty-thread native join rejected (2026-10-20 local)
+
+**Failed experiment; shared control remains unverified.** In the disposable
+`tui-join-only-GBt4TX` run (2026-10-21 UTC), the original Codex 0.160.0 TUI
+remained open with an empty composer. After two complete account/configuration
+and same-thread metadata observations, the second client sent exactly one
+`thread/resume` with that thread ID and `excludeTurns: true`. Native RPC returned
+`-32600`; no successful resume or warm-path diagnostic was observed. No model
+request, prompt or permission response occurred; no explicit history-hydration
+request or retry was sent.
+
+The exact invocation, with the frozen environment and resolved system-policy
+directory from the existing recipe, was:
+
+```powershell
+& 'C:/Program Files/Git/bin/bash.exe' ./apps/stack/bin/hstack-exec -- node .companion-local/tc-ach.5/native-tui-no-prompt.cjs --reviewed-run --observe-ms 60000 --system-config-dir $systemConfigDirectory --join-only
+```
+
+Local CTRL+C exited the TUI with status 0. The runner then stopped only its
+retained proxy/backend handles; all three direct children and the diagnostic
+stream closed. Final fixture result: `2 / BLOCKED_OR_INCOMPLETE`; enclosing
+executor: exit 1. Raw evidence is the Codex worktree's
+`.companion-local/tc-ach.5/tui-join-only-GBt4TX/events.jsonl` and the integration
+checkout's `native-terminal-GBt4TX.json` / `native-terminal-GBt4TX-exit.json`
+under `.companion-local/tc-ach.5/`. Independent review checked these records.
+
+Only the error code was retained, so this run does not establish missing stored
+metadata as its cause or disprove live attachment feasibility. The result's
+`responseReceived: false` means no successful join response; the failed RPC did
+receive a response. Absence of a cold diagnostic does not prove that cold
+execution was impossible. A useful next preparation is a narrowly classified native error
+and an explicit same-thread naming-completion gate before one fresh join attempt.
+Naming can write owned fixture SQLite metadata, name indexes and possible
+rollout materialization, and needs its own reviewed native grant; it must not
+be raced against the current automatic join or substituted
+silently. This experiment passes no product acceptance gate.
 
 ## Remaining real-account experiment for approval
 
