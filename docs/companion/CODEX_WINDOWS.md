@@ -950,6 +950,22 @@ complete history read or Android interaction ran. The native RPC still permits
 cold reconstruction; the positive diagnostic is post-execution evidence, not an
 atomic incarnation fence. No product acceptance gate passes.
 
+### Permission attempt stopped at model choice (2026-10-22)
+
+The composed warm-join/permission fixture was independently reviewed and run once as `tui-permission-deny-Bhxz20`. After the authorized fresh-project trust action, the original native TUI displayed **Meet GPT-6 Sol**, with **Try new model** and **Use existing model** choices. Neither choice was covered by the reviewed recipe. The coordinator selected neither and used local CTRL+C; no rename, join or prompt was submitted. This is a setup obstacle, not evidence against native permission feasibility.
+
+The attended command, from the Codex worktree with `tty:true`, was:
+
+```powershell
+$knownProgramData = [Environment]::GetFolderPath([Environment+SpecialFolder]::CommonApplicationData)
+$systemConfigDirectory = Join-Path $knownProgramData 'OpenAI/Codex'
+& 'C:/Program Files/Git/bin/bash.exe' ./apps/stack/bin/hstack-exec -- node .companion-local/tc-ach.5/native-tui-no-prompt.cjs --reviewed-run --observe-ms 60000 --system-config-dir $systemConfigDirectory --permission-deny
+```
+
+Executor 31331 returned **2**, with native TUI exit **0**, all retained direct children closed and diagnostics closed. The final trace at `2026-10-22T16:23:29.503Z` records **BLOCKED_OR_INCOMPLETE**, zero metadata/post-denial samples, zero HTTP/model requests, no decline and an absent marker. It also records `diagnostics-ended-before-local-exit` during incomplete cleanup; this is retained as a fixture finding, not silently treated as successful join evidence.
+
+Primary evidence is the Codex worktree's `.companion-local/tc-ach.5/tui-permission-deny-Bhxz20/events.jsonl` and the integration checkout's `.companion-local/tc-ach.5/native-terminal-Bhxz20-trust.json` and `native-terminal-Bhxz20-cancel.json`. The next bounded preparation must characterize the pinned existing-model action and its side effects before another reviewed grant. No model switch, policy relaxation, background-response allowance or automatic retry is authorized by this result. Earlier failures remain failed, and the LUq6ol warm-join observation remains limited to its no-prompt run.
+
 ## Remaining real-account experiment for approval
 
 The no-credential two-client transport prerequisite **has passed** in the

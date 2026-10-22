@@ -87,6 +87,16 @@ The catalog/event barrier does not await the detached native-response finalizer,
 
 No native provider or Android execution was performed for this correction. Any later native composition requires a separately reviewed disposable fixture, disposition of tc-ach.32, and the original live backend/session/TUI throughout; the historical 2.0.15 capture is only a test vector here.
 
+Reviewed source was integrated as `ddac3e06559be65a88148f269d4d6ec877079a86` on 2026-10-22. The integration checkout independently reran the affected suites: **40 lifecycle, 220 runtime and 34 V2 client tests passed**, followed by CLI TypeScript 7 typecheck (executor exit 0). Commands, from the repository root with the existing frozen dependency environment and `HAPPIER_CLI_TEST_SKIP_BUILD=1`:
+
+```powershell
+& 'C:/Program Files/Git/bin/bash.exe' ./apps/stack/bin/hstack-exec -- corepack.cmd yarn --cwd apps/cli vitest run --config vitest.integration.config.ts src/backends/opencode/server/runtime.client.lifecycle.integration.test.ts
+& 'C:/Program Files/Git/bin/bash.exe' ./apps/stack/bin/hstack-exec -- corepack.cmd yarn --cwd apps/cli vitest run --config vitest.config.ts src/backends/opencode/server/runtime.test.ts src/backends/opencode/server/client.v2.contract.test.ts
+& 'C:/Program Files/Git/bin/bash.exe' ./apps/stack/bin/hstack-exec -- corepack.cmd yarn --cwd apps/cli typecheck
+```
+
+Raw results are retained in the integration checkout's `.companion-local/tc-ach.31/integrated-lifecycle.log`, `integrated-runtime-client.log` and `integrated-typecheck.log`. These are source-level integration checks with controlled external boundaries. Native Windows composition, original-TUI continuity, model/tool continuation, authenticated phone control and physical Android remain unverified.
+
 ## Re-derived native contracts
 
 Observed in the pinned [OpenAPI](https://github.com/anomalyco/opencode/blob/6f3639d82ed0760091792189b78f8eeb44f699b1/packages/protocol/openapi.json):
