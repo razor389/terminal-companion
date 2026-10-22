@@ -421,10 +421,18 @@ export function createOpenCodeServerRuntime(params: {
   let retryBackoffUntilMs: number | null = null;
   let firstGenericRetryAtMs: number | null = null;
   let genericRetryNoticeSentForTurn = false;
-  let handledPermissionIds: Set<string> | null = null;
-  let handledQuestionIds: Set<string> | null = null;
-  let inFlightPermissionIds: Set<string> | null = null;
-  let inFlightQuestionIds: Set<string> | null = null;
+  type NativeRequest = Readonly<{
+    kind: 'question' | 'permission';
+    sessionID: string;
+    id: string;
+    localRequestId: string;
+  }>;
+  const nativeRequestKey = (request: Pick<NativeRequest, 'kind' | 'sessionID' | 'id'>): string =>
+    JSON.stringify([request.kind, request.sessionID, request.id]);
+  // Native requests outlive foreground turns. This replaces turn-local deduplication and
+  // retains the native-to-local bridge; the permission coordinator still owns every waiter.
+  const inFlightNativeRequests = new Map<string, NativeRequest>();
+  const handledNativeRequestKeys = new Set<string>();
   let pendingFailClosedQuestionRejectionKeys: Set<string> | null = null;
   let userMessageIdLastTimestampMs = 0;
   let userMessageIdCounter = 0;
@@ -580,6 +588,7 @@ export function createOpenCodeServerRuntime(params: {
   };
 
   const refreshLiveKnownOpenCodeStateFromControlPlaneBestEffort = async (): Promise<void> => {
+    scheduleAuthoritativeRequestInventoryRefresh();
     if (!turnDeferred) return;
     if (!turnPromptActive) return;
     if (!sessionId) return;
@@ -676,12 +685,11 @@ export function createOpenCodeServerRuntime(params: {
     }
   };
 
-  const resolvePermissionAskedToolBridge = async (req: OpenCodePermissionRequest): Promise<{
+  const resolvePermissionAskedToolBridge = async (req: OpenCodePermissionRequest, localRequestId: string): Promise<{
     localRequestId: string;
     toolName: string;
     toolInput: Record<string, unknown>;
   }> => {
-    const localRequestId = normalizeString(req.tool?.callID) || req.id;
     const matchedToolPart = await findToolPartForPermissionRequest(req);
     const partInput = matchedToolPart ? (asRecord((matchedToolPart.state as any).input) ?? {}) : {};
     const fallbackInput = buildOpenCodePermissionFallbackInput(req.metadata);
@@ -796,6 +804,9 @@ export function createOpenCodeServerRuntime(params: {
   };
 
   const publishDynamicSessionOptionsBestEffort = (): Promise<void> => {
+    const reportFailure = () => {
+      logger.infoFile('[OpenCodeServer] Failed publishing session options metadata (non-fatal)');
+    };
     return (async () => {
       if (!sessionId) return;
       const c = await ensureClient();
@@ -884,7 +895,9 @@ export function createOpenCodeServerRuntime(params: {
       if (!snapshot) return;
 
       const updatedAt = Date.now();
-      await params.session.updateMetadata((prev) => ({
+      // Keep catalog reads ordered with native events, then let ApiSessionClient serialize
+      // metadata writes. A relay ACK must not hold up a later native terminal request event.
+      void params.session.updateMetadata((prev) => ({
         ...prev,
         ...(agents !== null ? {
           sessionModesV1: {
@@ -918,10 +931,8 @@ export function createOpenCodeServerRuntime(params: {
             availableModels,
           },
         } : {}),
-      }));
-    })().catch((error) => {
-      logger.debug('[OpenCodeServer] Failed publishing session options metadata (non-fatal)', error);
-    });
+      })).catch(reportFailure);
+    })().catch(reportFailure);
   };
 
   const publishNativeTodosWorkStateBestEffort = () => {
@@ -1325,10 +1336,6 @@ export function createOpenCodeServerRuntime(params: {
       }
     }
     turnControlAbort = null;
-    handledPermissionIds = null;
-    handledQuestionIds = null;
-    inFlightPermissionIds = null;
-    inFlightQuestionIds = null;
     pendingFailClosedQuestionRejectionKeys = null;
     activeLifecycleMarkerId = null;
   };
@@ -1889,7 +1896,7 @@ export function createOpenCodeServerRuntime(params: {
         return;
       }
       if (turnAwaitingUserResponseCount > 0) return;
-      if ((inFlightPermissionIds?.size ?? 0) > 0 || (inFlightQuestionIds?.size ?? 0) > 0) return;
+      if (Array.from(inFlightNativeRequests.values()).some((request) => request.sessionID === sessionId)) return;
       if (!turnDeferred) return;
 
       if (pendingTurnToolForwardingWork.size > 0) {
@@ -1998,11 +2005,8 @@ export function createOpenCodeServerRuntime(params: {
   const backgroundTaskByRemoteSessionId = new Map<string, NonNullable<ReturnType<typeof parseOpenCodeToolPart>>>();
 
   const retireNativeChildAttention = (remoteSessionId: string): void => {
-    // The permission owner already persists the exact native session linkage in request input.
-    const requests = params.session.getAgentStateSnapshot?.()?.requests ?? {};
-    for (const [requestId, request] of Object.entries(requests)) {
-      if (asRecord(request.arguments)?.sessionId !== remoteSessionId) continue;
-      params.permissionHandler.cancelPendingRequest(requestId, 'OpenCode child ended');
+    for (const request of inFlightNativeRequests.values()) {
+      if (request.sessionID === remoteSessionId) retireNativeRequest(request, 'OpenCode child ended');
     }
   };
 
@@ -2967,6 +2971,7 @@ export function createOpenCodeServerRuntime(params: {
       if (remoteSessionId && remoteSessionId !== sessionId && !completedBackgroundTaskCallKeys.has(callKey)) {
         if (sidechainIdByRemoteSessionId.get(remoteSessionId)?.sidechainId !== callId) {
           sidechainIdByRemoteSessionId.set(remoteSessionId, { sidechainId: callId });
+          scheduleAuthoritativeRequestInventoryRefresh();
         }
         if (metadata.background === true || asRecord(part.state.input)?.background === true
           || (metadata.status === 'running' && status === 'completed')) {
@@ -3108,17 +3113,48 @@ export function createOpenCodeServerRuntime(params: {
     });
   };
 
-  const handleQuestionAsked = async (req: OpenCodeQuestionRequest) => {
+  const nativeRequestIsCurrent = (request: NativeRequest): boolean =>
+    inFlightNativeRequests.get(nativeRequestKey(request)) === request
+    && (request.sessionID === sessionId || sidechainIdByRemoteSessionId.has(request.sessionID));
+
+  const retireNativeRequest = (identity: Pick<NativeRequest, 'kind' | 'sessionID' | 'id'>, reason: string): void => {
+    const key = nativeRequestKey(identity);
+    const request = inFlightNativeRequests.get(key);
+    // Record terminal identity even if its inventory row/handler has not arrived yet.
+    handledNativeRequestKeys.add(key);
+    inFlightNativeRequests.delete(key);
+    pendingFailClosedQuestionRejectionKeys?.delete(`${identity.sessionID}\u0000${identity.id}`);
+    if (request) params.permissionHandler.cancelPendingRequest(request.localRequestId, reason);
+  };
+
+  const applyNativeResponse = async (isStillCurrent: () => boolean, send: () => Promise<boolean>): Promise<boolean> => {
+    if (!isStillCurrent()) return false;
+    if (!await send()) throw new Error('OpenCode did not accept the request response');
+    return true;
+  };
+
+  const reportNativeRequestFailure = (kind: NativeRequest['kind']): void => {
+    // Provider errors can contain answers, command text or credentials. Default diagnostics
+    // identify the failed operation without copying the HTTP response or request input.
+    logger.infoFile('[OpenCodeServer] opencode_native_request_failed', { kind });
+    params.session.sendAgentMessage(provider, {
+      type: 'message',
+      message: `OpenCode did not confirm the ${kind} response. Check the native terminal before responding again.`,
+    });
+  };
+
+  const handleQuestionAsked = async (req: OpenCodeQuestionRequest, request: NativeRequest) => {
     if (req.sessionID !== sessionId && !sidechainIdByRemoteSessionId.has(req.sessionID)) return;
     const child = sidechainIdByRemoteSessionId.get(req.sessionID);
-    const questionIsStillCurrent = () => !child || sidechainIdByRemoteSessionId.get(req.sessionID) === child;
+    const questionIsStillCurrent = () => nativeRequestIsCurrent(request)
+      && (!child || sidechainIdByRemoteSessionId.get(req.sessionID) === child);
 
     const rejectionKey = `${req.sessionID}\u0000${req.id}`;
     const rejectionKeysForOwningTurn = pendingFailClosedQuestionRejectionKeys ?? new Set<string>();
     pendingFailClosedQuestionRejectionKeys = rejectionKeysForOwningTurn;
     if (rejectionKeysForOwningTurn.has(rejectionKey)) {
       const c = await ensureClient();
-      await c.questionReject({ requestId: req.id });
+      await applyNativeResponse(questionIsStillCurrent, () => c.questionReject({ requestId: req.id }));
       rejectionKeysForOwningTurn.delete(rejectionKey);
       return;
     }
@@ -3137,14 +3173,14 @@ export function createOpenCodeServerRuntime(params: {
 
     if (questions.length > 0 && questions.every(openCodeQuestionRecordLooksLikeInternalTitleUpdate)) {
       const c = await ensureClient();
-      await c.questionReply({ requestId: req.id, answers: questions.map(() => ['OK']) });
+      await applyNativeResponse(questionIsStillCurrent, () => c.questionReply({ requestId: req.id, answers: questions.map(() => ['OK']) }));
       return;
     }
 
     if (isParentRequest) params.session.sendAgentMessage(provider, { type: 'task_started', id: ensureActiveLifecycleMarkerId() });
 
     const askUserQuestionInput = {
-      ...(child ? { sessionId: req.sessionID } : {}),
+      sessionId: req.sessionID,
       questions: questions.map((q) => ({
         question: normalizeString(q.question),
         header: normalizeString(q.header),
@@ -3230,20 +3266,12 @@ export function createOpenCodeServerRuntime(params: {
       }, error);
       params.session.sendAgentMessage(provider, {
         type: 'message',
-        message: 'Question request handling failed. For safety, the request was rejected.',
+        message: 'Question request handling failed. Attempting to reject it in OpenCode.',
       });
       rejectionKeysForOwningTurn.add(rejectionKey);
-      try {
-        const c = await ensureClient();
-        await c.questionReject({ requestId: req.id });
-        rejectionKeysForOwningTurn.delete(rejectionKey);
-      } catch (replyError) {
-        logger.debug('[OpenCodeServer] failed to reject question request after handler error', {
-          requestId: req.id,
-          sessionId: req.sessionID,
-        }, replyError);
-        throw replyError;
-      }
+      const c = await ensureClient();
+      await applyNativeResponse(questionIsStillCurrent, () => c.questionReject({ requestId: req.id }));
+      rejectionKeysForOwningTurn.delete(rejectionKey);
       return;
     } finally {
       if (isParentRequest) turnAwaitingUserResponseCount = Math.max(0, turnAwaitingUserResponseCount - 1);
@@ -3254,7 +3282,7 @@ export function createOpenCodeServerRuntime(params: {
       const answers = answersByKey && typeof answersByKey === 'object' && !Array.isArray(answersByKey) ? answersByKey : {};
       const answerArray = buildQuestionAnswersArray({ questions, answersByQuestionKey: answers });
       const c = await ensureClient();
-      await c.questionReply({ requestId: req.id, answers: answerArray });
+      if (!await applyNativeResponse(questionIsStillCurrent, () => c.questionReply({ requestId: req.id, answers: answerArray }))) return;
       params.session.sendAgentMessage(provider, {
         type: 'tool-result',
         callId: req.id,
@@ -3265,13 +3293,14 @@ export function createOpenCodeServerRuntime(params: {
     }
 
     const c = await ensureClient();
-    await c.questionReject({ requestId: req.id });
+    await applyNativeResponse(questionIsStillCurrent, () => c.questionReject({ requestId: req.id }));
   };
 
-  const handlePermissionAsked = async (req: OpenCodePermissionRequest) => {
+  const handlePermissionAsked = async (req: OpenCodePermissionRequest, request: NativeRequest) => {
     if (req.sessionID !== sessionId && !sidechainIdByRemoteSessionId.has(req.sessionID)) return;
     const child = sidechainIdByRemoteSessionId.get(req.sessionID);
-    const permissionIsStillCurrent = () => !child || sidechainIdByRemoteSessionId.get(req.sessionID) === child;
+    const permissionIsStillCurrent = () => nativeRequestIsCurrent(request)
+      && (!child || sidechainIdByRemoteSessionId.get(req.sessionID) === child);
     const isParentRequest = req.sessionID === sessionId;
     if (isParentRequest) {
       setThinking(false);
@@ -3284,17 +3313,17 @@ export function createOpenCodeServerRuntime(params: {
     const c = await ensureClient();
     // Mirror Happier permission mode semantics for provider-native permission prompts.
     if (mode === 'read-only' || mode === 'plan') {
-      await c.permissionReply({ requestId: req.id, reply: 'reject' });
+      await applyNativeResponse(permissionIsStillCurrent, () => c.permissionReply({ requestId: req.id, reply: 'reject' }));
       return;
     }
     if (mode === 'yolo' || mode === 'acceptEdits' || mode === 'bypassPermissions') {
-      await c.permissionReply({ requestId: req.id, reply: 'once' });
+      await applyNativeResponse(permissionIsStillCurrent, () => c.permissionReply({ requestId: req.id, reply: 'once' }));
       return;
     }
 
     let decision: Awaited<ReturnType<typeof params.permissionHandler.handleToolCall>>;
     try {
-      const resolved = await resolvePermissionAskedToolBridge(req);
+      const resolved = await resolvePermissionAskedToolBridge(req, request.localRequestId);
       if (!permissionIsStillCurrent()) return;
       if (isParentRequest) turnAwaitingUserResponseCount += 1;
       try {
@@ -3315,16 +3344,9 @@ export function createOpenCodeServerRuntime(params: {
       }, error);
       params.session.sendAgentMessage(provider, {
         type: 'message',
-        message: 'Permission request handling failed. For safety, the request was rejected.',
+        message: 'Permission request handling failed. Attempting to reject it in OpenCode.',
       });
-      try {
-        await c.permissionReply({ requestId: req.id, reply: 'reject' });
-      } catch (replyError) {
-        logger.debug('[OpenCodeServer] failed to reject permission request after handler error (non-fatal)', {
-          requestId: req.id,
-          sessionId: req.sessionID,
-        }, replyError);
-      }
+      await applyNativeResponse(permissionIsStillCurrent, () => c.permissionReply({ requestId: req.id, reply: 'reject' }));
       return;
     }
 
@@ -3333,117 +3355,120 @@ export function createOpenCodeServerRuntime(params: {
     if (decision.decision === 'approved_for_session') {
       // Happier owns "always allow" persistence and scope. Always reply "once" to OpenCode so
       // vendor-side approvals never leak across sessions via a shared server process.
-      await c.permissionReply({ requestId: req.id, reply: 'once' });
+      await applyNativeResponse(permissionIsStillCurrent, () => c.permissionReply({ requestId: req.id, reply: 'once' }));
       return;
     }
     if (decision.decision === 'approved' || decision.decision === 'approved_execpolicy_amendment') {
-      await c.permissionReply({ requestId: req.id, reply: 'once' });
+      await applyNativeResponse(permissionIsStillCurrent, () => c.permissionReply({ requestId: req.id, reply: 'once' }));
       return;
     }
-    await c.permissionReply({ requestId: req.id, reply: 'reject' });
+    await applyNativeResponse(permissionIsStillCurrent, () => c.permissionReply({ requestId: req.id, reply: 'reject' }));
   };
 
-  const ensureHandledPermissionIds = (): Set<string> => {
-    if (!handledPermissionIds) handledPermissionIds = new Set<string>();
-    return handledPermissionIds;
-  };
-
-  const ensureHandledQuestionIds = (): Set<string> => {
-    if (!handledQuestionIds) handledQuestionIds = new Set<string>();
-    return handledQuestionIds;
-  };
-
-  const ensureInFlightPermissionIds = (): Set<string> => {
-    if (!inFlightPermissionIds) inFlightPermissionIds = new Set<string>();
-    return inFlightPermissionIds;
-  };
-
-  const ensureInFlightQuestionIds = (): Set<string> => {
-    if (!inFlightQuestionIds) inFlightQuestionIds = new Set<string>();
-    return inFlightQuestionIds;
+  const handleNativeRequestBestEffort = (request: NativeRequest, handle: () => Promise<void>): void => {
+    if (request.sessionID !== sessionId && !sidechainIdByRemoteSessionId.has(request.sessionID)) return;
+    const key = nativeRequestKey(request);
+    if (handledNativeRequestKeys.has(key) || inFlightNativeRequests.has(key)) return;
+    inFlightNativeRequests.set(key, request);
+    void handle()
+      .catch(() => reportNativeRequestFailure(request.kind))
+      .finally(() => {
+        // Keep the existing fail-closed question rejection retry, but never replay a failed
+        // approval from the coordinator's cached decision on a later inventory/event.
+        if (inFlightNativeRequests.get(key) === request) {
+          if (!pendingFailClosedQuestionRejectionKeys?.has(request.sessionID + '\u0000' + request.id)) {
+            handledNativeRequestKeys.add(key);
+          }
+          inFlightNativeRequests.delete(key);
+        }
+        if (idleSignalSeen && turnPromptActive) void maybeResolveTurnOnIdleSignal();
+      });
   };
 
   const handleQuestionAskedBestEffort = (req: OpenCodeQuestionRequest) => {
-    if (req.sessionID !== sessionId && !sidechainIdByRemoteSessionId.has(req.sessionID)) return;
-    const handled = ensureHandledQuestionIds();
-    const inFlight = ensureInFlightQuestionIds();
-    if (handled.has(req.id) || inFlight.has(req.id)) return;
-    inFlight.add(req.id);
-    void handleQuestionAsked(req)
-      .then(() => {
-        handled.add(req.id);
-      })
-      .catch((error) => {
-        logger.debug('[OpenCodeServer] question handler failed (non-fatal)', error);
-      })
-      .finally(() => {
-        inFlight.delete(req.id);
-      });
+    const request: NativeRequest = { kind: 'question', sessionID: req.sessionID, id: req.id, localRequestId: req.id };
+    handleNativeRequestBestEffort(request, () => handleQuestionAsked(req, request));
   };
 
   const handlePermissionAskedBestEffort = (req: OpenCodePermissionRequest) => {
-    if (req.sessionID !== sessionId && !sidechainIdByRemoteSessionId.has(req.sessionID)) return;
-    const handled = ensureHandledPermissionIds();
-    const inFlight = ensureInFlightPermissionIds();
-    if (handled.has(req.id) || inFlight.has(req.id)) return;
-    inFlight.add(req.id);
-    void handlePermissionAsked(req)
-      .then(() => {
-        handled.add(req.id);
-      })
-      .catch((error) => {
-        logger.debug('[OpenCodeServer] permission handler failed (non-fatal)', error);
-      })
-      .finally(() => {
-        inFlight.delete(req.id);
-      });
+    const request: NativeRequest = {
+      kind: 'permission', sessionID: req.sessionID, id: req.id,
+      localRequestId: normalizeString(req.tool?.callID) || req.id,
+    };
+    handleNativeRequestBestEffort(request, () => handlePermissionAsked(req, request));
+  };
+
+  const reconcileNativeRequestInventory = <T extends { id: string; sessionID: string }>(
+    kind: NativeRequest['kind'],
+    rows: unknown[],
+    parse: (raw: unknown) => T | null,
+    admit: (request: T) => void,
+    pendingAtStart: ReadonlyMap<string, NativeRequest>,
+  ): void => {
+    const requests = rows.map(parse);
+    if (requests.some((request) => request === null)) {
+      logger.infoFile('[OpenCodeServer] opencode_request_inventory_invalid', { kind });
+      return;
+    }
+    const present = new Set(requests.flatMap((request) => request ? [nativeRequestKey({ ...request, kind })] : []));
+    for (const [key, request] of pendingAtStart) {
+      // Absence says nothing about requests first observed after this read started.
+      if (request.kind === kind && !present.has(key) && inFlightNativeRequests.get(key) === request) {
+        retireNativeRequest(request, 'OpenCode request no longer pending');
+      }
+    }
+    for (const request of requests) {
+      if (request) admit(request);
+    }
   };
 
   let authoritativeRequestInventoryRefreshInFlight: Promise<void> | null = null;
+  let authoritativeRequestInventoryRefreshRequested = false;
   scheduleAuthoritativeRequestInventoryRefresh = () => {
+    authoritativeRequestInventoryRefreshRequested = true;
     if (authoritativeRequestInventoryRefreshInFlight) return;
     const work = (async () => {
-      const c = await ensureClient();
-      const [permissionsResult, questionsResult] = await Promise.allSettled([
-        c.permissionList(),
-        c.questionList(),
-      ]);
+      do {
+        authoritativeRequestInventoryRefreshRequested = false;
+        const owningSession = sessionId;
+        const owningSubscription = subscriptionAbort;
+        const owningDirectory = currentMcpDirectory;
+        const owningGeneration = currentManagedServerGenerationKey();
+        if (!owningSession) return;
+        const c = await ensureClient();
+        const pendingAtStart = new Map(inFlightNativeRequests);
+        const [permissionsResult, questionsResult] = await Promise.allSettled([
+          c.permissionList(), c.questionList(),
+        ]);
+        // Let already received terminal events retire their exact identities before admitting
+        // rows from this older HTTP read. The event queue never awaits this inventory worker.
+        await pendingEventWork;
+        if (sessionId !== owningSession || subscriptionAbort !== owningSubscription
+          || currentMcpDirectory !== owningDirectory || client !== c) continue;
+        if (currentManagedServerGenerationKey() !== owningGeneration) authoritativeRequestInventoryRefreshRequested = true;
+        // A reconnect or control invalidation received during this read requires a fresh
+        // inventory. Do not briefly republish rows from the superseded read.
+        if (authoritativeRequestInventoryRefreshRequested) continue;
 
-      if (permissionsResult.status === 'fulfilled') {
-        for (const raw of permissionsResult.value) {
-          const request = parsePermissionRequest(raw);
-          if (request) handlePermissionAskedBestEffort(request);
+        if (permissionsResult.status === 'fulfilled') {
+          reconcileNativeRequestInventory('permission', permissionsResult.value, parsePermissionRequest, handlePermissionAskedBestEffort, pendingAtStart);
+        } else {
+          logger.infoFile('[OpenCodeServer] opencode_request_inventory_failed', { kind: 'permission' });
         }
-      } else {
-        logger.debug('[OpenCodeServer] failed to refresh active permission requests (non-fatal)', {
-          sessionId,
-          error: permissionsResult.reason,
-        });
-      }
-
-      if (questionsResult.status === 'fulfilled') {
-        for (const raw of questionsResult.value) {
-          const request = parseQuestionRequest(raw);
-          if (request) handleQuestionAskedBestEffort(request);
+        if (questionsResult.status === 'fulfilled') {
+          reconcileNativeRequestInventory('question', questionsResult.value, parseQuestionRequest, handleQuestionAskedBestEffort, pendingAtStart);
+        } else {
+          logger.infoFile('[OpenCodeServer] opencode_request_inventory_failed', { kind: 'question' });
         }
-      } else {
-        logger.debug('[OpenCodeServer] failed to refresh active question requests (non-fatal)', {
-          sessionId,
-          error: questionsResult.reason,
-        });
-      }
+      } while (authoritativeRequestInventoryRefreshRequested);
     })();
     authoritativeRequestInventoryRefreshInFlight = work;
     void work
-      .catch((error) => {
-        logger.debug('[OpenCodeServer] active request inventory refresh failed (non-fatal)', {
-          sessionId,
-          error,
-        });
-      })
+      .catch(() => logger.infoFile('[OpenCodeServer] opencode_request_inventory_failed'))
       .finally(() => {
         if (authoritativeRequestInventoryRefreshInFlight === work) {
           authoritativeRequestInventoryRefreshInFlight = null;
+          if (authoritativeRequestInventoryRefreshRequested) scheduleAuthoritativeRequestInventoryRefresh();
         }
       });
   };
@@ -3580,11 +3605,30 @@ export function createOpenCodeServerRuntime(params: {
         scheduleExternalSessionTranscriptProjection();
       }
       // Inventory snapshots can precede V2 plugin settlement; reconnect also catches missed
-      // invalidations. Return the publication work to the existing event sequencing owner.
+      // invalidations. Keep native refresh and catalog discovery in the existing event sequence.
       return Promise.all([
         refreshLiveKnownOpenCodeStateFromControlPlaneBestEffort(),
         publishDynamicSessionOptionsBestEffort(),
       ]).then(() => {});
+    }
+
+    if (type === 'location.shutdown') {
+      // A location is not a session/request identity. Only its authoritative inventory may
+      // retire missing requests; unrelated sessions and locations retain their own state.
+      if (evt.directory === currentMcpDirectory) scheduleAuthoritativeRequestInventoryRefresh();
+      return;
+    }
+
+    if (type === 'question.replied' || type === 'question.rejected' || type === 'permission.replied') {
+      const terminal = asRecord(props);
+      const nativeSessionId = normalizeString(terminal?.sessionID);
+      const nativeRequestId = normalizeString(terminal?.requestID);
+      if (nativeRequestId && nativeSessionId
+        && (nativeSessionId === sessionId || sidechainIdByRemoteSessionId.has(nativeSessionId))) {
+        retireNativeRequest({ kind: type === 'permission.replied' ? 'permission' : 'question',
+          sessionID: nativeSessionId, id: nativeRequestId }, 'OpenCode request resolved natively');
+      }
+      return;
     }
 
     if (type === 'model.updated' || type === 'provider.updated' || type === 'agent.updated') {
@@ -3885,19 +3929,19 @@ export function createOpenCodeServerRuntime(params: {
       const rawSessionId = normalizeString(rec?.sessionID);
       const belongsToThisRuntime = rawSessionId && (rawSessionId === sessionId || sidechainIdByRemoteSessionId.has(rawSessionId));
       if (belongsToThisRuntime && requestId) {
-        void (async () => {
-          params.session.sendAgentMessage(provider, {
-            type: 'message',
-            message: 'OpenCode emitted a malformed permission request. For safety, it was rejected.',
-          });
-          const c = await ensureClient();
-          await c.permissionReply({ requestId, reply: 'reject' });
-        })().catch((error) => {
-          logger.debug('[OpenCodeServer] failed to reject malformed permission request (non-fatal)', {
-            requestId,
-            sessionId: rawSessionId,
-          }, error);
-          abortTurnFailClosedDueToPermissionProtocolError(error);
+        const request: NativeRequest = { kind: 'permission', sessionID: rawSessionId, id: requestId, localRequestId: requestId };
+        handleNativeRequestBestEffort(request, async () => {
+          try {
+            params.session.sendAgentMessage(provider, {
+              type: 'message',
+              message: 'OpenCode emitted a malformed permission request. Attempting to reject it.',
+            });
+            const c = await ensureClient();
+            await applyNativeResponse(() => nativeRequestIsCurrent(request), () => c.permissionReply({ requestId, reply: 'reject' }));
+          } catch (error) {
+            abortTurnFailClosedDueToPermissionProtocolError(new Error('OpenCode did not confirm the malformed permission rejection'));
+            throw error;
+          }
         });
         return;
       }
@@ -4410,10 +4454,6 @@ export function createOpenCodeServerRuntime(params: {
       turnPromptEffectiveTextForBackfill = effectiveText;
       turnPrePromptMessageIdsAll = null;
       turnPreexistingMessageIds = null;
-      handledPermissionIds = new Set<string>();
-      handledQuestionIds = new Set<string>();
-      inFlightPermissionIds = new Set<string>();
-      inFlightQuestionIds = new Set<string>();
 
       const serverReadyForPrompt = await waitForServerConnectedBeforePrompt(thisTurnDeferred, promptSessionId);
       if (!serverReadyForPrompt) {
@@ -4820,6 +4860,9 @@ export function createOpenCodeServerRuntime(params: {
 
     async reset(): Promise<void> {
       rejectTurn(new Error('OpenCode runtime reset'));
+      for (const request of inFlightNativeRequests.values()) retireNativeRequest(request, 'OpenCode runtime reset');
+      handledNativeRequestKeys.clear();
+      authoritativeRequestInventoryRefreshRequested = false;
       resetRuntimeState();
       connectedBrokerPreflight = null;
       resetServerConnectedReadiness();

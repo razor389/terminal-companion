@@ -1,8 +1,9 @@
-import { createServer, type ServerResponse } from 'node:http';
+import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { existsSync, readFileSync } from 'node:fs';
 import type { AddressInfo } from 'node:net';
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { STRUCTURED_QUESTION_LIMITS } from '@happier-dev/protocol';
 import { bindApiSessionSocketMock, createApiSessionSocketStub, resolveApiSessionSocketDefaultAck } from '@/testkit/backends/apiSessionSocketHarness';
 import { ApiSessionClient } from '@/api/session/sessionClient';
 import { createPlainSessionFixture } from '@/testkit/backends/sessionFixtures';
@@ -92,6 +93,632 @@ describe('OpenCode client/runtime lifecycle composition', () => {
     await Promise.all(openServers.splice(0).map(async (server) => {
       await new Promise<void>((resolve) => server.close(() => resolve()));
     }));
+  });
+
+  const nativeSessionId = 'ses_eafdf8795ffeZ5vnL1oI89MBn2';
+  const directory = 'C:/tc-ach31/disposable';
+  // Captured OpenCode 2.0.15 Windows run 8c75d7fd-1e5e-4fae-a309-1ae18f692e70:
+  // evidence.jsonl:179,223-224. The terminal form event has no location.
+  const nativeForm = (sessionID = nativeSessionId, id = 'frm_13bd1429fa1241fc9b8dde2f69cdc2e0') => ({
+    id, sessionID, title: 'tc-ach.4 structured question', fields: [
+      { key: 'choice', title: 'Choice', required: true, type: 'string', options: [
+        { value: 'local', label: 'Local' }, { value: 'remote', label: 'Remote' },
+      ] },
+      { key: 'note', title: 'Fixture text', required: true, type: 'string' },
+    ],
+  });
+  const nativePermission = (sessionID = nativeSessionId) => ({
+    id: 'per_native', sessionID, action: 'bash', resources: ['pwd'], save: [],
+    metadata: { command: 'pwd' }, source: { type: 'tool', messageID: 'msg_permission', id: 'call_native' },
+  });
+  type RequestFixture = {
+    session: ApiSessionClient;
+    permissionHandler: ProviderEnforcedPermissionHandler;
+    restart: () => Promise<void>;
+    emit: (type: string, data: unknown, location?: { directory: string }) => void;
+    reconnect: () => void;
+    wire: {
+      forms: unknown[];
+      permissions: unknown[];
+      agents: Array<{ id: string; name: string }>;
+      replyStatus: number;
+      formInventory?: (response: ServerResponse) => void;
+      nativeResponse?: (request: IncomingMessage, response: ServerResponse) => void;
+      messages?: (response: ServerResponse) => void;
+    };
+    relay: {
+      holdRequestId?: string;
+      releaseAck?: () => void;
+      holdModeId?: string;
+      releaseMetadataAck?: () => void;
+    };
+    nativeWrites: Array<{ method: string; path: string }>;
+    relayMessages: unknown[];
+  };
+
+  const withNativeRequests = async (run: (fixture: RequestFixture) => Promise<void>, generation: 'v1' | 'v2' = 'v2') => {
+    let events: ServerResponse | null = null;
+    const wire: RequestFixture['wire'] = { forms: [], permissions: [], agents: [], replyStatus: 204 };
+    const relay: RequestFixture['relay'] = {};
+    const nativeWrites: RequestFixture['nativeWrites'] = [];
+    const relayMessages: unknown[] = [];
+    const server = createServer((request, response) => {
+      const url = new URL(request.url ?? '/', 'http://127.0.0.1');
+      if (generation === 'v1') {
+        if (url.pathname === '/global/health') sendJson(response, { healthy: true, version: '1.18.33' });
+        else if (url.pathname === '/event') {
+          events = response;
+          response.writeHead(200, { 'content-type': 'text/event-stream' });
+          response.write('data: ' + JSON.stringify({ type: 'server.connected', properties: {} }) + '\n\n');
+        } else if (url.pathname === '/question') sendJson(response, wire.forms);
+        else if (url.pathname === '/permission') sendJson(response, wire.permissions);
+        else if (url.pathname.startsWith('/question/') || url.pathname.startsWith('/permission/')) {
+          nativeWrites.push({ method: request.method ?? '', path: url.pathname });
+          sendJson(response, false);
+        } else if (url.pathname === '/session/' + nativeSessionId) sendJson(response, { id: nativeSessionId, directory });
+        else sendJson(response, []);
+        return;
+      }
+      if (url.pathname === '/api/info') sendJson(response, { version: '2.0.15', pid: process.pid, urls: [], paths: {} });
+      else if (url.pathname === '/api/event') {
+        events = response;
+        response.writeHead(200, { 'content-type': 'text/event-stream' });
+        response.write('data: ' + JSON.stringify({ type: 'server.connected', data: {} }) + '\n\n');
+      } else if (url.pathname === '/api/form') {
+        if (wire.formInventory) wire.formInventory(response);
+        else sendJson(response, { data: wire.forms });
+      } else if (url.pathname === '/api/agent') sendJson(response, { data: wire.agents });
+      else if (url.pathname === '/api/permission/request') sendJson(response, { data: wire.permissions });
+      else if (url.pathname.includes('/form/') || url.pathname.includes('/permission/')) {
+        if (request.method !== 'GET') nativeWrites.push({ method: request.method ?? '', path: url.pathname });
+        if (wire.nativeResponse) wire.nativeResponse(request, response);
+        else if (wire.replyStatus === 204) response.writeHead(204).end();
+        else sendJson(response, { message: 'fixture-private-native-answer' }, wire.replyStatus);
+      } else if (url.pathname.endsWith('/message')) {
+        if (wire.messages) wire.messages(response);
+        else sendJson(response, { data: [], cursor: {} });
+      } else if (url.pathname.endsWith('/messages')) sendJson(response, { messages: [], hasMore: false });
+      else if (url.pathname === '/api/session/' + nativeSessionId) sendJson(response, { data: { id: nativeSessionId, location: { directory } } });
+      else sendJson(response, { data: [] });
+    });
+    openServers.push(server);
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+    const baseUrl = 'http://127.0.0.1:' + (server.address() as AddressInfo).port;
+    await withConfiguredDaemonTestHome({ prefix: 'opencode-request-retirement-', env: {
+      HAPPIER_SERVER_URL: baseUrl, HAPPIER_SERVER_URL_LOCAL: baseUrl, HAPPIER_PUBLIC_SERVER_URL: baseUrl,
+    } }, async () => {
+      // Only provider HTTP/SSE and relay transport/ACK are controlled. All request owners are real.
+      const socket = createApiSessionSocketStub({ connected: true, emit: (event, args) => {
+        if (event === 'ping' && typeof args[0] === 'function') args[0]();
+      }, emitWithAck: (event, payload) => {
+        const body = payload as Record<string, unknown>;
+        if (event === 'message') relayMessages.push(body.message);
+        if (event === 'update-metadata' || event === 'update-state') {
+          const ack = { result: 'success', metadata: body.metadata, agentState: body.agentState,
+            version: Number(body.expectedVersion) + 1 };
+          const state = event === 'update-state' && typeof body.agentState === 'string'
+            ? JSON.parse(body.agentState) as { completedRequests?: Record<string, { status?: string }> }
+            : null;
+          if (relay.holdRequestId && state?.completedRequests?.[relay.holdRequestId]?.status === 'approved') {
+            relay.holdRequestId = undefined;
+            return new Promise((resolve) => { relay.releaseAck = () => resolve(ack); });
+          }
+          const metadata = event === 'update-metadata' && typeof body.metadata === 'string'
+            ? JSON.parse(body.metadata) as { sessionModesV1?: { availableModes?: Array<{ id: string }> } }
+            : null;
+          if (relay.holdModeId && metadata?.sessionModesV1?.availableModes?.some((mode) => mode.id === relay.holdModeId)) {
+            relay.holdModeId = undefined;
+            return new Promise((resolve) => {
+              relay.releaseMetadataAck = () => {
+                relay.releaseMetadataAck = undefined;
+                resolve(ack);
+              };
+            });
+          }
+          return ack;
+        }
+        return resolveApiSessionSocketDefaultAck(event, payload);
+      } });
+      bindApiSessionSocketMock(mockIo, socket);
+      const session = new ApiSessionClient('synthetic-token', createPlainSessionFixture({ id: 'happy_request_retirement' }));
+      const permissionHandler = new ProviderEnforcedPermissionHandler(session, { logPrefix: '[test]' });
+      const env = { ...process.env, HAPPIER_OPENCODE_CLI_GENERATION: generation, HAPPIER_OPENCODE_SERVER_STATUS_POLL_ENABLED: '0' };
+      const runtime = createOpenCodeServerRuntime({ directory, env, session, messageBuffer: new MessageBuffer(), mcpServers: {},
+        happierMcpAdmission: { kind: 'not_available_for_execution_run' }, permissionHandler,
+        onThinkingChange: () => {}, getPermissionMode: () => 'default' }, {
+        createClient: () => createOpenCodeServerRuntimeClient({ directory, baseUrlOverride: baseUrl, env, messageBuffer: new MessageBuffer() }),
+      });
+      try {
+        await runtime.startOrLoad({ resumeId: nativeSessionId });
+        await expect.poll(() => events).not.toBeNull();
+        await run({ session, permissionHandler, wire, relay, nativeWrites, relayMessages,
+          restart: async () => {
+            const previousEvents = events;
+            await runtime.reset();
+            await runtime.startOrLoad({ resumeId: nativeSessionId });
+            await expect.poll(() => events !== previousEvents).toBe(true);
+          },
+          emit: (type, data, location) => events?.write('data: ' + JSON.stringify(generation === 'v2'
+            ? { type, data, location } : { type, properties: data }) + '\n\n'),
+          reconnect: () => { events?.end(); },
+        });
+      } finally {
+        relay.releaseAck?.();
+        relay.releaseMetadataAck?.();
+        // Release controlled HTTP boundaries before disposing the real client.
+        wire.formInventory = undefined;
+        wire.nativeResponse = undefined;
+        wire.messages = undefined;
+        permissionHandler.reset();
+        await runtime.reset();
+        await session.close();
+        server.closeAllConnections();
+      }
+    });
+  };
+
+  const joinNativeWaiter = async (fixture: RequestFixture, id: string) => {
+    await expect.poll(() => fixture.session.getAgentStateSnapshot()?.requests?.[id]).toBeDefined();
+    const request = fixture.session.getAgentStateSnapshot()!.requests![id]!;
+    const waiter = fixture.permissionHandler.handleToolCall(id, request.tool, request.arguments);
+    let settled: Awaited<typeof waiter> | undefined;
+    void waiter.then((decision) => { settled = decision; }).catch(() => {});
+    void waiter.catch(() => {});
+    // Wrap so this helper does not await the pending decision.
+    return { waiter, settlement: () => settled };
+  };
+
+  const drainNativeEvents = async (fixture: RequestFixture, marker: string) => {
+    const mode = { id: marker, name: marker };
+    fixture.wire.agents = [mode];
+    fixture.emit('agent.updated', {}, { directory });
+    await expect.poll(() => fixture.session.getMetadataSnapshot()?.sessionModesV1?.availableModes).toContainEqual(mode);
+    await fixture.session.flush();
+  };
+
+  const nativeRequestFailureCountSince = (offset: number) => {
+    logger.flushSync();
+    return readFileSync(logger.getLogPath(), 'utf8').slice(offset).split('opencode_native_request_failed').length - 1;
+  };
+
+  const taskStartedCount = (fixture: RequestFixture) => fixture.relayMessages
+    .filter((message) => JSON.stringify(message).includes('"type":"task_started"')).length;
+
+  const invalidNativeForm = () => {
+    const form = nativeForm();
+    // Native text reaches the real shared question validator; no internal handler is stubbed.
+    form.fields[0]!.title = 'x'.repeat(STRUCTURED_QUESTION_LIMITS.maxStringLength + 1);
+    return form;
+  };
+
+  it('tc-ach.31 retries fail-closed rejection until native acknowledgement without duplicating the request', async () => {
+    await withNativeRequests(async (fixture) => {
+      const form = invalidNativeForm();
+      const deliveries: ServerResponse[] = [];
+      fixture.wire.forms = [form];
+      fixture.wire.nativeResponse = (_request, response) => { deliveries.push(response); };
+      const logStart = existsSync(logger.getLogPath()) ? readFileSync(logger.getLogPath(), 'utf8').length : 0;
+      try {
+        fixture.emit('form.created', { form });
+        await expect.poll(() => deliveries.length).toBe(1);
+        fixture.emit('form.created', { form });
+        await drainNativeEvents(fixture, 'rejection-pending');
+        expect(deliveries).toHaveLength(1);
+        expect(fixture.session.getAgentStateSnapshot()?.requests?.[form.id]).toBeUndefined();
+        expect(taskStartedCount(fixture)).toBe(1);
+
+        sendJson(deliveries[0]!, {}, 503);
+        await expect.poll(() => nativeRequestFailureCountSince(logStart)).toBe(1);
+        fixture.emit('form.created', { form });
+        await expect.poll(() => deliveries.length).toBe(2);
+        fixture.emit('form.created', { form });
+        await drainNativeEvents(fixture, 'rejection-retry-pending');
+        expect(deliveries).toHaveLength(2);
+        expect(fixture.wire.forms).toEqual([form]);
+
+        // The provider accepts cancellation only on this second delivery.
+        fixture.wire.forms = [];
+        deliveries[1]!.writeHead(204).end();
+        await drainNativeEvents(fixture, 'rejection-accepted');
+        fixture.emit('form.created', { form });
+        await drainNativeEvents(fixture, 'rejection-duplicate');
+        expect(deliveries).toHaveLength(2);
+        expect(taskStartedCount(fixture)).toBe(1);
+        expect(fixture.nativeWrites).toEqual([0, 1].map(() => ({
+          method: 'DELETE', path: '/api/session/' + nativeSessionId + '/form/' + form.id,
+        })));
+        expect(fixture.session.getAgentStateSnapshot()?.requests?.[form.id]).toBeUndefined();
+      } finally {
+        for (const response of deliveries) if (!response.writableEnded) sendJson(response, {}, 503);
+      }
+    });
+  });
+
+  it.each(['resolve', 'reject', 'settled failure'] as const)(
+    'tc-ach.31 fences fail-closed rejection across reset with the same native key (%s)', async (retiredOutcome) => {
+      await withNativeRequests(async (fixture) => {
+        const form = invalidNativeForm();
+        const deliveries: ServerResponse[] = [];
+        fixture.wire.forms = [form];
+        fixture.wire.nativeResponse = (_request, response) => { deliveries.push(response); };
+        const logStart = existsSync(logger.getLogPath()) ? readFileSync(logger.getLogPath(), 'utf8').length : 0;
+        try {
+          fixture.emit('form.created', { form });
+          await expect.poll(() => deliveries.length).toBe(1);
+          if (retiredOutcome === 'settled failure') {
+            sendJson(deliveries[0]!, {}, 503);
+            await expect.poll(() => nativeRequestFailureCountSince(logStart)).toBe(1);
+            // Clearing unsettled rejection intent must let a fresh valid request reach the owner.
+            const successor = nativeForm();
+            fixture.wire.forms = [successor];
+            await fixture.restart();
+            fixture.emit('form.created', { form: successor });
+            const successorWaiter = await joinNativeWaiter(fixture, successor.id);
+            expect(successorWaiter.settlement()).toBeUndefined();
+            expect(deliveries).toHaveLength(1);
+            return;
+          }
+
+          await fixture.restart();
+          fixture.emit('form.created', { form });
+          await expect.poll(() => deliveries.length).toBe(2);
+          if (retiredOutcome === 'resolve') deliveries[0]!.writeHead(204).end();
+          else sendJson(deliveries[0]!, {}, 503);
+          await drainNativeEvents(fixture, 'retired-rejection-settled');
+          fixture.emit('form.created', { form });
+          await drainNativeEvents(fixture, 'new-rejection-still-pending');
+          expect(deliveries).toHaveLength(2);
+
+          const failuresBeforeRetry = nativeRequestFailureCountSince(logStart);
+          sendJson(deliveries[1]!, {}, 503);
+          await expect.poll(() => nativeRequestFailureCountSince(logStart)).toBe(failuresBeforeRetry + 1);
+          fixture.emit('form.created', { form });
+          await expect.poll(() => deliveries.length).toBe(3);
+          fixture.wire.forms = [];
+          deliveries[2]!.writeHead(204).end();
+          await drainNativeEvents(fixture, 'new-rejection-accepted');
+          fixture.emit('form.created', { form });
+          await drainNativeEvents(fixture, 'new-rejection-duplicate');
+          expect(deliveries).toHaveLength(3);
+          // Retired completion must neither release the successor's in-flight guard nor erase
+          // its retry intent and cause a second user-action lifecycle to be published.
+          expect(taskStartedCount(fixture)).toBe(2);
+          expect(fixture.nativeWrites.every((write) => write.method === 'DELETE'
+            && write.path === '/api/session/' + nativeSessionId + '/form/' + form.id)).toBe(true);
+          expect(fixture.session.getAgentStateSnapshot()?.requests?.[form.id]).toBeUndefined();
+        } finally {
+          for (const response of deliveries) if (!response.writableEnded) sendJson(response, {}, 503);
+        }
+      });
+    },
+  );
+
+  it('tc-ach.31 applies duplicate V2 permission and form frames through one shared pending owner', async () => {
+    await withNativeRequests(async (fixture) => {
+      await drainNativeEvents(fixture, 'before-streamed-requests');
+      const form = nativeForm();
+      const permission = nativePermission();
+      const replies: Array<{ path: string; body: Record<string, unknown> }> = [];
+      fixture.wire.nativeResponse = (request, response) => {
+        void readJsonBody(request).then((body) => {
+          replies.push({ path: request.url ?? '', body });
+          response.writeHead(204).end();
+        }).catch(() => response.writeHead(400).end());
+      };
+      const emitRequests = () => {
+        fixture.emit('form.created', { form });
+        fixture.emit('permission.asked', permission);
+      };
+      emitRequests();
+      const questionWaiter = await joinNativeWaiter(fixture, form.id);
+      const permissionWaiter = await joinNativeWaiter(fixture, permission.source.id);
+      // Admission above must come from SSE, before inventories contain either request.
+      fixture.wire.forms = [form];
+      fixture.wire.permissions = [permission];
+      emitRequests();
+      await drainNativeEvents(fixture, 'duplicate-requests-pending');
+      expect(Object.keys(fixture.session.getAgentStateSnapshot()?.requests ?? {}).sort())
+        .toEqual([form.id, permission.source.id].sort());
+      expect(fixture.nativeWrites).toEqual([]);
+      await fixture.session.rpcHandlerManager.invokeLocal('permission', {
+        id: form.id, approved: true, answers: { Choice: 'Remote', 'Fixture text': 'remote-text' },
+      });
+      await fixture.session.rpcHandlerManager.invokeLocal('permission', { id: permission.source.id, approved: true });
+      await expect(questionWaiter.waiter).resolves.toMatchObject({ decision: 'approved' });
+      await expect(permissionWaiter.waiter).resolves.toMatchObject({ decision: 'approved' });
+      await expect.poll(() => fixture.nativeWrites.length).toBe(2);
+      emitRequests();
+      await drainNativeEvents(fixture, 'duplicate-requests-completed');
+      expect(fixture.nativeWrites).toEqual(expect.arrayContaining([
+        { method: 'POST', path: '/api/session/' + nativeSessionId + '/form/' + form.id + '/reply' },
+        { method: 'POST', path: '/api/session/' + nativeSessionId + '/permission/' + permission.id + '/reply' },
+      ]));
+      expect(fixture.nativeWrites).toHaveLength(2);
+      expect(replies).toEqual(expect.arrayContaining([
+        { path: '/api/session/' + nativeSessionId + '/form/' + form.id + '/reply',
+          body: { answer: { choice: 'remote', note: 'remote-text' } } },
+        { path: '/api/session/' + nativeSessionId + '/permission/' + permission.id + '/reply',
+          body: { decision: 'once' } },
+      ]));
+      expect(fixture.session.getAgentStateSnapshot()?.requests?.[form.id]).toBeUndefined();
+      expect(fixture.session.getAgentStateSnapshot()?.requests?.[permission.source.id]).toBeUndefined();
+    });
+  });
+
+  it.each([
+    { kind: 'question', boundary: 'native cancellation', child: false },
+    { kind: 'question', boundary: 'relay acknowledgement pending', child: false },
+    { kind: 'question', boundary: 'local reply', child: true },
+    { kind: 'permission', boundary: 'local reply', child: false },
+    { kind: 'permission', boundary: 'child termination', child: true },
+    { kind: 'question', boundary: 'reconnect inventory', child: false },
+    { kind: 'permission', boundary: 'reconnect inventory', child: false },
+  ] as const)('tc-ach.31 retires only the exact $kind ($boundary, child=$child)', async ({ kind, boundary, child }) => {
+    await withNativeRequests(async (fixture) => {
+      const { session, wire, emit, relay, nativeWrites } = fixture;
+      const targetSession = child ? 'ses_child' : nativeSessionId;
+      const form = nativeForm(targetSession);
+      const permission = nativePermission(targetSession);
+      const localId = kind === 'question' ? form.id : permission.source.id;
+      const nativeId = kind === 'question' ? form.id : permission.id;
+      if (child) emit('session.tool.progress', {
+        sessionID: nativeSessionId, assistantMessageID: 'msg_parent', id: 'call_subagent', name: 'subagent',
+        input: { background: true }, metadata: { sessionID: targetSession, status: 'running' },
+      });
+      if (kind === 'question') {
+        wire.forms = [form];
+        emit('form.created', { form });
+      } else {
+        wire.permissions = [permission];
+        emit('permission.asked', permission);
+      }
+      const { waiter, settlement } = await joinNativeWaiter(fixture, localId);
+      // A same-session native neighbor survives terminal events and directory lifecycle refreshes.
+      const neighbor = nativeForm(nativeSessionId, 'frm_neighbor');
+      wire.forms.push(neighbor);
+      emit('form.created', { form: neighbor });
+      await joinNativeWaiter(fixture, neighbor.id);
+      await session.flush();
+      emit(kind === 'question' ? 'form.cancelled' : 'permission.replied', kind === 'question'
+        ? { id: nativeId, sessionID: 'ses_unrelated' }
+        : { requestID: nativeId, sessionID: 'ses_unrelated', reply: 'reject' });
+      emit('location.shutdown', {}, { directory });
+      const scopeBarrier = nativeForm(nativeSessionId, 'frm_scope_barrier');
+      wire.forms.push(scopeBarrier);
+      emit('form.created', { form: scopeBarrier });
+      await joinNativeWaiter(fixture, scopeBarrier.id);
+      expect(session.getAgentStateSnapshot()?.requests?.[localId]).toBeDefined();
+
+      let response: Promise<unknown> | undefined;
+      if (boundary === 'relay acknowledgement pending') {
+        relay.holdRequestId = localId;
+        response = session.rpcHandlerManager.invokeLocal('permission', {
+          id: localId, approved: true, answers: { Choice: 'Remote', 'Fixture text': 'remote-text' },
+        });
+        void response.catch(() => {});
+        await expect.poll(() => relay.releaseAck).toBeDefined();
+      }
+      if (boundary === 'reconnect inventory') {
+        wire.forms = [neighbor, scopeBarrier];
+        wire.permissions = [];
+        fixture.reconnect();
+      }
+      else if (boundary === 'child termination') emit('session.execution.succeeded', { sessionID: targetSession });
+      else {
+        emit(kind === 'question' ? (boundary === 'local reply' ? 'form.replied' : 'form.cancelled') : 'permission.replied',
+          kind === 'question'
+            ? { id: nativeId, sessionID: targetSession, ...(boundary === 'local reply' ? { answer: { choice: 'local', note: 'local-text' } } : {}) }
+            : { requestID: nativeId, sessionID: targetSession, reply: 'once' });
+        emit('location.shutdown', {}, { directory });
+      }
+      // Native retirement must settle before a held relay ACK can complete.
+      // Event cases retain the old inventory row until settlement: a refresh must not mask
+      // missing form/permission terminal-event wiring.
+      await expect.poll(settlement).toEqual({ decision: 'abort' });
+      await expect(waiter).resolves.toEqual({ decision: 'abort' });
+      wire.forms = [neighbor, scopeBarrier];
+      wire.permissions = [];
+      relay.releaseAck?.();
+      await response?.catch(() => {});
+      await expect.poll(() => session.getAgentStateSnapshot()?.completedRequests?.[localId]).toMatchObject({ status: 'canceled' });
+      expect(session.getAgentStateSnapshot()?.requests?.[localId]).toBeUndefined();
+      expect(session.getAgentStateSnapshot()?.requests?.[neighbor.id]).toBeDefined();
+      const late = session.rpcHandlerManager.invokeLocal('permission', {
+        id: localId, approved: true, ...(kind === 'question' ? { answers: { Choice: 'Remote', 'Fixture text': 'late-text' } } : {}),
+      });
+      if (kind === 'question') await expect(late).rejects.toThrow();
+      else await expect(late).resolves.toMatchObject({ ok: false });
+      expect(nativeWrites).toEqual([]);
+    });
+  });
+
+  it.each(['reconnect', 'agent.updated'] as const)(
+    'tc-ach.31 retires a native form while catalog metadata ACK is pending (%s)', async (trigger) => {
+      await withNativeRequests(async (fixture) => {
+        const { wire, relay, session, emit, nativeWrites } = fixture;
+        const form = nativeForm();
+        const neighbor = nativeForm(nativeSessionId, 'frm_metadata_ack_neighbor');
+        // Keep both rows in every inventory so only the terminal event can retire the form.
+        wire.forms = [form, neighbor];
+        emit('form.created', { form });
+        const { settlement } = await joinNativeWaiter(fixture, form.id);
+        emit('form.created', { form: neighbor });
+        const neighborWaiter = await joinNativeWaiter(fixture, neighbor.id);
+        await session.flush();
+
+        // A new native mode identifies the real catalog publication, excluding unrelated metadata writes.
+        const mode = { id: 'metadata-ack-fixture', name: 'Metadata ACK fixture' };
+        wire.agents = [mode];
+        relay.holdModeId = mode.id;
+        if (trigger === 'reconnect') fixture.reconnect();
+        else emit(trigger, {}, { directory });
+        await expect.poll(() => relay.releaseMetadataAck).toBeDefined();
+        expect(session.getMetadataSnapshot()?.sessionModesV1?.availableModes).not.toContainEqual(mode);
+
+        try {
+          emit('form.cancelled', { id: form.id, sessionID: nativeSessionId });
+          // This must settle while the catalog producer is still awaiting its relay ACK.
+          await expect.poll(settlement).toEqual({ decision: 'abort' });
+          await expect.poll(() => session.getAgentStateSnapshot()?.completedRequests?.[form.id]).toMatchObject({ status: 'canceled' });
+          expect(session.getAgentStateSnapshot()?.requests?.[form.id]).toBeUndefined();
+          expect(session.getAgentStateSnapshot()?.requests?.[neighbor.id]).toBeDefined();
+          expect(neighborWaiter.settlement()).toBeUndefined();
+          expect(relay.releaseMetadataAck).toBeDefined();
+          expect(nativeWrites).toEqual([]);
+        } finally {
+          relay.releaseMetadataAck?.();
+          // Drain the real publication and queued cancellation even when the pre-ACK assertion fails.
+          await expect.poll(() => session.getMetadataSnapshot()?.sessionModesV1?.availableModes).toContainEqual(mode);
+          await expect.poll(settlement).toEqual({ decision: 'abort' });
+          await session.flush();
+        }
+      });
+    },
+  );
+
+  it('tc-ach.31 ignores stale inventory rows and preserves a request created during the read', async () => {
+    await withNativeRequests(async (fixture) => {
+      const { wire, emit, session } = fixture;
+      const form = nativeForm();
+      wire.forms = [form];
+      emit('form.created', { form });
+      const { settlement } = await joinNativeWaiter(fixture, form.id);
+      let pendingInventory: ServerResponse | undefined;
+      wire.formInventory = (response) => { pendingInventory = response; };
+      fixture.reconnect();
+      await expect.poll(() => pendingInventory).toBeDefined();
+      try {
+        emit('form.cancelled', { id: form.id, sessionID: nativeSessionId });
+        await expect.poll(settlement).toEqual({ decision: 'abort' });
+        const neighbor = nativeForm(nativeSessionId, 'frm_new_during_inventory');
+        emit('form.created', { form: neighbor });
+        await joinNativeWaiter(fixture, neighbor.id);
+        // The old response both contains a retired row and omits the new live row.
+        wire.formInventory = undefined;
+        sendJson(pendingInventory!, { data: [form] });
+        // A following authoritative inventory provides an observable completion barrier.
+        wire.forms = [neighbor, nativeForm(nativeSessionId, 'frm_inventory_barrier')];
+        fixture.reconnect();
+        await joinNativeWaiter(fixture, 'frm_inventory_barrier');
+        expect(session.getAgentStateSnapshot()?.requests?.[form.id]).toBeUndefined();
+        expect(session.getAgentStateSnapshot()?.requests?.[neighbor.id]).toBeDefined();
+        expect(fixture.nativeWrites).toEqual([]);
+      } finally {
+        if (!pendingInventory?.writableEnded) pendingInventory?.end();
+      }
+    });
+  });
+
+  it('tc-ach.31 fences cancellation while permission tool lookup is pending', async () => {
+    await withNativeRequests(async (fixture) => {
+      let lookup: ServerResponse | undefined;
+      fixture.wire.messages = (response) => { lookup = response; };
+      const permission = nativePermission();
+      fixture.wire.permissions = [permission];
+      fixture.emit('permission.asked', permission);
+      await expect.poll(() => lookup).toBeDefined();
+      try {
+        fixture.emit('permission.replied', { sessionID: nativeSessionId, requestID: permission.id, reply: 'reject' });
+        fixture.wire.permissions = [];
+        const barrier = nativeForm(nativeSessionId, 'frm_after_terminal_event');
+        fixture.emit('form.created', { form: barrier });
+        await joinNativeWaiter(fixture, barrier.id);
+        fixture.wire.messages = undefined;
+        sendJson(lookup!, { data: [], cursor: {} });
+        // Drain the provider read and real publication queue via a fresh inventory request.
+        fixture.wire.forms = [barrier, nativeForm(nativeSessionId, 'frm_lookup_barrier')];
+        fixture.reconnect();
+        await joinNativeWaiter(fixture, 'frm_lookup_barrier');
+        expect(fixture.session.getAgentStateSnapshot()?.requests?.[permission.source.id]).toBeUndefined();
+        expect(fixture.nativeWrites).toEqual([]);
+      } finally {
+        if (!lookup?.writableEnded) lookup?.end();
+      }
+    });
+  });
+
+  it.each(['question', 'permission'] as const)('tc-ach.31 exposes failed native %s application without replaying it', async (kind) => {
+    await withNativeRequests(async (fixture) => {
+      const form = nativeForm();
+      const permission = nativePermission();
+      const localId = kind === 'question' ? form.id : permission.source.id;
+      fixture.wire.forms = kind === 'question' ? [form] : [];
+      fixture.wire.permissions = kind === 'permission' ? [permission] : [];
+      fixture.wire.replyStatus = 404;
+      const logStart = existsSync(logger.getLogPath()) ? readFileSync(logger.getLogPath(), 'utf8').length : 0;
+      fixture.emit(kind === 'question' ? 'form.created' : 'permission.asked', kind === 'question' ? { form } : permission);
+      await joinNativeWaiter(fixture, localId);
+      // This ACK completes the projection; it does not certify native application.
+      await fixture.session.rpcHandlerManager.invokeLocal('permission', {
+        id: localId, approved: true, ...(kind === 'question' ? { answers: { Choice: 'Remote', 'Fixture text': 'remote-text' } } : {}),
+      });
+      await expect.poll(() => {
+        logger.flushSync();
+        return readFileSync(logger.getLogPath(), 'utf8').slice(logStart);
+      }).toContain('opencode_native_request_failed');
+      const diagnostic = readFileSync(logger.getLogPath(), 'utf8').slice(logStart);
+      expect(diagnostic).not.toContain('fixture-private-native-answer');
+      await fixture.session.flush();
+      const messages = JSON.stringify(fixture.relayMessages);
+      expect(messages).toContain('OpenCode did not confirm');
+      expect(messages).not.toContain('tool-result');
+      // Reconnect must not turn the cached remote decision into an automatic retry.
+      fixture.wire.forms.push(nativeForm(nativeSessionId, 'frm_failure_barrier'));
+      fixture.reconnect();
+      await joinNativeWaiter(fixture, 'frm_failure_barrier');
+      expect(fixture.nativeWrites).toHaveLength(1);
+    });
+  });
+
+  it('tc-ach.31 preserves V1 terminal identities and treats a false native reply as failure', async () => {
+    await withNativeRequests(async (fixture) => {
+      const question = { id: 'q_v1', sessionID: nativeSessionId,
+        questions: [{ question: 'Continue?', header: 'Continue', options: [] }] };
+      fixture.wire.forms = [question];
+      fixture.emit('question.asked', question);
+      const { settlement } = await joinNativeWaiter(fixture, question.id);
+      fixture.emit('question.rejected', { sessionID: nativeSessionId, requestID: question.id });
+      await expect.poll(settlement).toEqual({ decision: 'abort' });
+      expect(fixture.nativeWrites).toEqual([]);
+
+      const permission = { id: 'p_v1', sessionID: nativeSessionId, permission: 'bash', patterns: ['pwd'], always: [],
+        metadata: { command: 'pwd' }, tool: { callID: 'call_v1', messageID: 'msg_v1' } };
+      fixture.wire.forms = [];
+      fixture.wire.permissions = [permission];
+      const logStart = existsSync(logger.getLogPath()) ? readFileSync(logger.getLogPath(), 'utf8').length : 0;
+      fixture.emit('permission.asked', permission);
+      await joinNativeWaiter(fixture, permission.tool.callID);
+      await fixture.session.rpcHandlerManager.invokeLocal('permission', { id: permission.tool.callID, approved: true });
+      await expect.poll(() => {
+        logger.flushSync();
+        return readFileSync(logger.getLogPath(), 'utf8').slice(logStart);
+      }).toContain('opencode_native_request_failed');
+      expect(fixture.nativeWrites).toEqual([{ method: 'POST', path: '/permission/p_v1/reply' }]);
+    }, 'v1');
+  });
+
+  it('tc-ach.31 keeps live requests on incomplete inventory and still applies a current answer', async () => {
+    await withNativeRequests(async (fixture) => {
+      const form = nativeForm();
+      fixture.wire.forms = [form];
+      fixture.emit('form.created', { form });
+      const { settlement } = await joinNativeWaiter(fixture, form.id);
+      const logStart = existsSync(logger.getLogPath()) ? readFileSync(logger.getLogPath(), 'utf8').length : 0;
+      fixture.wire.formInventory = (response) => sendJson(response, { data: [{}] });
+      fixture.reconnect();
+      await expect.poll(() => {
+        logger.flushSync();
+        return readFileSync(logger.getLogPath(), 'utf8').slice(logStart);
+      }).toContain('opencode_request_inventory_failed');
+      expect(settlement()).toBeUndefined();
+      expect(fixture.session.getAgentStateSnapshot()?.requests?.[form.id]).toBeDefined();
+      await fixture.session.rpcHandlerManager.invokeLocal('permission', {
+        id: form.id, approved: true, answers: { Choice: 'Remote', 'Fixture text': 'remote-text' },
+      });
+      await expect.poll(() => fixture.nativeWrites.length).toBe(1);
+      await expect.poll(() => JSON.stringify(fixture.relayMessages)).toContain('tool-result');
+      expect(fixture.nativeWrites[0]).toEqual({ method: 'POST', path: '/api/session/' + nativeSessionId + '/form/' + form.id + '/reply' });
+    });
   });
 
   it.each(['history', 'sidechain'] as const)('commits distinct opaque import identities without losing messages ($0)', async (kind) => {

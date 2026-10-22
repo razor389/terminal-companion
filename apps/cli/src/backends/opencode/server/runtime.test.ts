@@ -4738,204 +4738,6 @@ describe('createOpenCodeServerRuntime', () => {
     );
   });
 
-  it('retries fail-closed question rejection after delivery fails and handles only after settlement', async () => {
-    const client = createFakeClient();
-    const session = createFakeSession();
-    let rejectFirstDelivery: (error: Error) => void = () => {
-      throw new Error('first question rejection delivery did not start');
-    };
-    client.questionReject.mockImplementationOnce(async () => await new Promise<never>((_resolve, reject) => {
-      rejectFirstDelivery = reject;
-    })).mockResolvedValueOnce(true);
-    const permissionHandler = {
-      handleToolCall: vi.fn(async () => {
-        throw new Error('invalid structured question');
-      }),
-    };
-
-    const runtime = createOpenCodeServerRuntime({
-      directory: '/tmp',
-      session,
-      messageBuffer: new MessageBuffer(),
-      mcpServers: {},
-      permissionHandler: permissionHandler as any,
-      onThinkingChange: vi.fn(),
-    }, {
-      createClient: async () => client as any,
-    });
-
-    await runtime.startOrLoad({});
-    const event = {
-      directory: '/tmp',
-      payload: {
-        type: 'question.asked',
-        properties: {
-          id: 'que_invalid_1',
-          sessionID: 'ses_1',
-          questions: [{ question: 'q1', header: 'Q1', options: [], multiple: false }],
-        },
-      },
-    } as const;
-
-    await client.__emit(event);
-    await expect.poll(() => client.questionReject.mock.calls.length).toBe(1);
-    await client.__emit(event);
-    await new Promise<void>((resolve) => setImmediate(resolve));
-    expect(permissionHandler.handleToolCall).toHaveBeenCalledTimes(1);
-    expect(client.questionReject).toHaveBeenCalledTimes(1);
-    rejectFirstDelivery(new Error('transient question rejection delivery failure'));
-    await new Promise<void>((resolve) => setImmediate(resolve));
-    await client.__emit(event);
-    await expect.poll(() => client.questionReject.mock.calls.length).toBe(2);
-    await new Promise<void>((resolve) => setImmediate(resolve));
-    await client.__emit(event);
-    await new Promise<void>((resolve) => setImmediate(resolve));
-
-    expect(permissionHandler.handleToolCall).toHaveBeenCalledTimes(1);
-    expect(client.questionReject).toHaveBeenCalledTimes(2);
-    expect(client.questionReject).toHaveBeenNthCalledWith(1, { requestId: 'que_invalid_1' });
-    expect(client.questionReject).toHaveBeenNthCalledWith(2, { requestId: 'que_invalid_1' });
-    expect(session.sendAgentMessage).toHaveBeenCalledWith('opencode', expect.objectContaining({
-      type: 'message',
-      message: expect.stringContaining('rejected'),
-    }));
-    expect(sentAgentMessagesOfType(session, 'task_started')).toHaveLength(1);
-    const rejectionNotices = session.sendAgentMessage.mock.calls.filter((call: unknown[]) => {
-      const message = call[1];
-      return message !== null
-        && typeof message === 'object'
-        && !Array.isArray(message)
-        && (message as Record<string, unknown>).type === 'message'
-        && String((message as Record<string, unknown>).message).includes('request was rejected');
-    });
-    expect(rejectionNotices).toHaveLength(1);
-  });
-
-  it('clears unsettled fail-closed question rejection intent on runtime reset', async () => {
-    const client = createFakeClient();
-    const session = createFakeSession();
-    client.questionReject
-      .mockRejectedValueOnce(new Error('transient question rejection delivery failure'))
-      .mockResolvedValueOnce(true);
-    const permissionHandler = {
-      handleToolCall: vi.fn(async () => {
-        throw new Error('invalid structured question');
-      }),
-    };
-    const runtime = createOpenCodeServerRuntime({
-      directory: '/tmp',
-      session,
-      messageBuffer: new MessageBuffer(),
-      mcpServers: {},
-      permissionHandler: permissionHandler as any,
-      onThinkingChange: vi.fn(),
-    }, { createClient: async () => client as any });
-    const event = {
-      directory: '/tmp',
-      payload: {
-        type: 'question.asked',
-        properties: {
-          id: 'que_invalid_reset',
-          sessionID: 'ses_1',
-          questions: [{ question: 'q1', header: 'Q1', options: [], multiple: false }],
-        },
-      },
-    } as const;
-
-    await runtime.startOrLoad({});
-    await client.__emit(event);
-    await expect.poll(() => client.questionReject.mock.calls.length).toBe(1);
-    await new Promise<void>((resolve) => setImmediate(resolve));
-
-    await runtime.reset();
-    await runtime.startOrLoad({});
-    await client.__emit(event);
-    await expect.poll(() => client.questionReject.mock.calls.length).toBe(2);
-
-    expect(permissionHandler.handleToolCall).toHaveBeenCalledTimes(2);
-  });
-
-  it.each(['resolve', 'reject'] as const)(
-    'fences stale fail-closed rejection %s from a new runtime lifecycle with the same request key',
-    async (retiredOutcome) => {
-      const client = createFakeClient();
-      const session = createFakeSession();
-      let resolveRetiredDelivery: (value: boolean) => void = () => {
-        throw new Error('retired question rejection delivery did not start');
-      };
-      let rejectRetiredDelivery: (error: Error) => void = () => {
-        throw new Error('retired question rejection delivery did not start');
-      };
-      let rejectNewDelivery: (error: Error) => void = () => {
-        throw new Error('new question rejection delivery did not start');
-      };
-      client.questionReject
-        .mockImplementationOnce(async () => await new Promise<boolean>((resolve, reject) => {
-          resolveRetiredDelivery = resolve;
-          rejectRetiredDelivery = reject;
-        }))
-        .mockImplementationOnce(async () => await new Promise<never>((_resolve, reject) => {
-          rejectNewDelivery = reject;
-        }))
-        .mockResolvedValueOnce(true);
-      const permissionHandler = {
-        handleToolCall: vi.fn(async () => {
-          throw new Error('invalid structured question');
-        }),
-      };
-      const runtime = createOpenCodeServerRuntime({
-        directory: '/tmp',
-        session,
-        messageBuffer: new MessageBuffer(),
-        mcpServers: {},
-        permissionHandler: permissionHandler as any,
-        onThinkingChange: vi.fn(),
-      }, { createClient: async () => client as any });
-      const event = {
-        directory: '/tmp',
-        payload: {
-          type: 'question.asked',
-          properties: {
-            id: 'que_invalid_reset_race',
-            sessionID: 'ses_1',
-            questions: [{ question: 'q1', header: 'Q1', options: [], multiple: false }],
-          },
-        },
-      } as const;
-
-      await runtime.startOrLoad({});
-      await client.__emit(event);
-      await expect.poll(() => client.questionReject.mock.calls.length).toBe(1);
-
-      await runtime.reset();
-      await runtime.startOrLoad({});
-      await client.__emit(event);
-      await expect.poll(() => client.questionReject.mock.calls.length).toBe(2);
-
-      if (retiredOutcome === 'resolve') {
-        resolveRetiredDelivery(true);
-      } else {
-        rejectRetiredDelivery(new Error('retired lifecycle rejection delivery failure'));
-      }
-      await new Promise<void>((resolve) => setImmediate(resolve));
-      await client.__emit(event);
-      await new Promise<void>((resolve) => setImmediate(resolve));
-      expect(permissionHandler.handleToolCall).toHaveBeenCalledTimes(2);
-      expect(client.questionReject).toHaveBeenCalledTimes(2);
-
-      rejectNewDelivery(new Error('new lifecycle rejection delivery failure'));
-      await new Promise<void>((resolve) => setImmediate(resolve));
-      await client.__emit(event);
-      await expect.poll(() => client.questionReject.mock.calls.length).toBe(3);
-      await new Promise<void>((resolve) => setImmediate(resolve));
-      await client.__emit(event);
-      await new Promise<void>((resolve) => setImmediate(resolve));
-
-      expect(permissionHandler.handleToolCall).toHaveBeenCalledTimes(2);
-      expect(client.questionReject).toHaveBeenCalledTimes(3);
-    },
-  );
-
   it('auto-acknowledges internal OpenCode title update questions without surfacing AskUserQuestion', async () => {
     const client = createFakeClient();
     const session = createFakeSession();
@@ -5229,7 +5031,7 @@ describe('createOpenCodeServerRuntime', () => {
     expect(client.questionReply).toHaveBeenCalledWith({ requestId: 'que_other_combo', answers: [['Custom goal, with commas']] });
   });
 
-  it('uses SSE as the sole permission/question owner while status polling remains a bounded completion fallback', async () => {
+  it('keeps status polling bounded without periodically rereading request inventories', async () => {
     const restoreEnv = withEnvForTest({
       HAPPIER_OPENCODE_SERVER_CONTROL_POLL_INTERVAL_MS: '2000',
       HAPPIER_OPENCODE_SERVER_ACTIVE_CONTROL_POLL_INTERVAL_MS: '250',
@@ -5242,145 +5044,31 @@ describe('createOpenCodeServerRuntime', () => {
     try {
       const client = createFakeClient();
       client.sessionStatusList.mockResolvedValue({ ses_1: { type: 'busy' } });
-      const permissionHandler = {
-        handleToolCall: vi.fn(async (_id: string, toolName: string) => (
-          toolName === 'AskUserQuestion'
-            ? { decision: 'approved' as const, answers: { q1: ['yes'] } }
-            : { decision: 'approved' as const }
-        )),
-      };
       const started = await beginOpenCodePromptForTest({
         client,
-        permissionHandler,
-        localId: 'local-sse-control-owner',
+        localId: 'local-status-control-owner',
       });
       runtime = started.runtime;
       promptPromise = started.promptPromise;
-
-      const permissionEvent: OpenCodeGlobalEvent = {
-        directory: '/tmp',
-        payload: {
-          type: 'permission.asked',
-          properties: {
-            id: 'perm_sse_owner',
-            sessionID: 'ses_1',
-            permission: 'edit',
-            patterns: ['AGENTS.md'],
-            always: ['*'],
-            metadata: {},
-            tool: { messageID: 'msg_tool_sse_owner', callID: 'call_sse_owner' },
-          },
-        },
-      };
-      const questionEvent: OpenCodeGlobalEvent = {
-        directory: '/tmp',
-        payload: {
-          type: 'question.asked',
-          properties: {
-            id: 'question_sse_owner',
-            sessionID: 'ses_1',
-            questions: [{
-              question: 'Continue?',
-              header: 'Continue',
-              options: [{ label: 'yes', description: 'Continue' }],
-              multiple: false,
-            }],
-          },
-        },
-      };
-
-      await client.__emit(permissionEvent);
-      await client.__emit(permissionEvent);
-      await client.__emit(questionEvent);
-      await client.__emit(questionEvent);
-      await flushTranscriptCommitMicrotasks();
       await advanceTimersAndFlush(1_000);
 
-      expect(client.permissionList).not.toHaveBeenCalled();
-      expect(client.questionList).not.toHaveBeenCalled();
+      // Startup reconciliation reads inventories once; the periodic fallback polls status only.
+      // Real V2 request admission, duplicate delivery and replies are covered by the composed suite.
+      expect(client.permissionList).toHaveBeenCalledTimes(1);
+      expect(client.questionList).toHaveBeenCalledTimes(1);
       expect(client.sessionStatusList.mock.calls.length).toBeGreaterThan(0);
       expect(client.sessionStatusList.mock.calls.length).toBeLessThanOrEqual(5);
-      expect(permissionHandler.handleToolCall).toHaveBeenCalledTimes(2);
-      expect(client.permissionReply).toHaveBeenCalledTimes(1);
-      expect(client.questionReply).toHaveBeenCalledTimes(1);
 
-      await emitTerminalAssistantAndIdle(client, { messageId: 'msg_sse_control_owner_done' });
+      await emitTerminalAssistantAndIdle(client, { messageId: 'msg_status_control_owner_done' });
       await expect(promptPromise).resolves.toBeUndefined();
-      expect(client.permissionList).not.toHaveBeenCalled();
-      expect(client.questionList).not.toHaveBeenCalled();
+      expect(client.permissionList).toHaveBeenCalledTimes(1);
+      expect(client.questionList).toHaveBeenCalledTimes(1);
     } finally {
       await runtime?.cancel().catch(() => {});
       await promptPromise?.catch(() => undefined);
       vi.useRealTimers();
       await runtime?.reset().catch(() => {});
       restoreEnv();
-    }
-  });
-
-  it('handles permission and question frames from the authoritative V2 event stream directly', async () => {
-    const client = createFakeClient();
-    client.sessionStatusList.mockResolvedValue({ ses_1: { type: 'busy' } });
-    const permissionHandler = {
-      handleToolCall: vi.fn(async (_id: string, toolName: string) => (
-        toolName === 'AskUserQuestion'
-          ? { decision: 'approved' as const, answers: { 'Trust streamed content?': ['yes'] } }
-          : { decision: 'approved' as const }
-      )),
-    };
-    const started = await beginOpenCodePromptForTest({
-      client,
-      permissionHandler,
-      localId: 'local-authoritative-request-inventory',
-    });
-
-    try {
-      await client.__emitLive({
-        directory: '/tmp',
-        payload: {
-          type: 'permission.asked',
-          properties: {
-            id: 'perm_streamed',
-            sessionID: 'ses_1',
-            permission: 'bash',
-            patterns: ['rm -rf /'],
-            always: ['*'],
-            metadata: {},
-          },
-        },
-      });
-      await client.__emitLive({
-        directory: '/tmp',
-        payload: {
-          type: 'question.asked',
-          properties: {
-            id: 'question_streamed',
-            sessionID: 'ses_1',
-            questions: [{
-              question: 'Trust streamed content?',
-              header: 'Stream',
-              options: [{ label: 'yes', description: 'Continue' }],
-              multiple: false,
-            }],
-          },
-        },
-      });
-
-      await expect.poll(() => client.permissionReply.mock.calls.length).toBe(1);
-      await expect.poll(() => client.questionReply.mock.calls.length).toBe(1);
-      expect(client.permissionReply).toHaveBeenCalledWith({
-        requestId: 'perm_streamed',
-        reply: 'once',
-      });
-      expect(client.questionReply).toHaveBeenCalledWith({
-        requestId: 'question_streamed',
-        answers: [['yes']],
-      });
-      expect(client.permissionList).not.toHaveBeenCalled();
-      expect(client.questionList).not.toHaveBeenCalled();
-    } finally {
-      await started.runtime.cancel().catch(() => {});
-      await started.promptPromise.catch(() => undefined);
-      await started.runtime.reset().catch(() => {});
     }
   });
 

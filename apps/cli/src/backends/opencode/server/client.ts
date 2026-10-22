@@ -1598,7 +1598,8 @@ export async function createOpenCodeServerRuntimeClient(params: Readonly<{
       }
       const questions = data.flatMap((form) => {
         const projection = projectOpenCodeV2Form(form);
-        if (!projection) return [];
+        // A partial inventory cannot establish that an existing request disappeared.
+        if (!projection) throw new Error('OpenCode form inventory contains an unrepresentable form');
         rememberOpenCodeV2FormProjection(projection);
         return [projection.request];
       });

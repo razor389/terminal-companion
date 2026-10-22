@@ -96,6 +96,12 @@ export function normalizeOpenCodeV2Event(type: string, rawData: unknown): OpenCo
   if (!data) return { type, properties: rawData };
 
   switch (type) {
+    case 'form.cancelled':
+    case 'form.replied':
+      return {
+        type: type === 'form.cancelled' ? 'question.rejected' : 'question.replied',
+        properties: { sessionID: data.sessionID, requestID: data.id },
+      };
     case 'session.text.started':
       return streamEvent('text', 'started', data);
     case 'session.text.delta':
