@@ -1,8 +1,8 @@
 # Codex shared control on native Windows
 
 Research basis: **2026-10-17**, **tc-ach.5**, native **codex-cli 0.160.0**.
-**Native two-client transport passed; same-TUI shared live control remains
-BLOCKED / UNVERIFIED.** Two WebSocket clients used native proxy pipes to reach
+**Native two-client transport and one structured denial with the original TUI
+were observed; the complete desktop/phone contract remains BLOCKED / UNVERIFIED.** Two WebSocket clients used native proxy pipes to reach
 one disposable backend; the second remained usable after the first proxy was
 terminated. That transport probe exercised no native TUI, thread creation, model
 turn, permission race, phone, draft, or incarnation behavior. The coordinator's
@@ -16,6 +16,11 @@ successful second-client join to the live thread while the original native TUI
 remained open. It requested one bounded empty history page, with zero model
 requests. [Exact evidence and limits](#bounded-initial-page-warm-join-observed-2026-10-21-local)
 remain distinct from permission delivery, incarnation fencing and phone control.
+
+On **2026-10-22**, the composed [single-denial experiment](#native-single-denial-and-terminal-continuation-observed-2026-10-22)
+observed a bound native decline, rejection in the same turn's continuation, an
+absent marker, subsequent local draft editing and retained cleanup. Its two model
+exchanges were synthetic loopback responses, with no real provider account.
 
 A later account-free native permission experiment on **2026-10-19** reached the
 original TUI/thread, then failed at the synthetic model boundary: the first
@@ -816,7 +821,7 @@ observations, not an atomic cold-path fence. At that stage, diagnostic
 availability on the successful branch and a live join were unverified; the later
 [LUq6ol experiment](#bounded-initial-page-warm-join-observed-2026-10-21-local)
 observed both. Earlier fixtures only counted stderr bytes and cannot supply this
-evidence retrospectively. Permission replay remains unverified.
+evidence retrospectively. Those no-prompt runs supplied no permission replay.
 
 The unknown fixture model also lacks the bundled patch capability supplied by
 `gpt-5.5`. Correcting that fixture configuration alone is insufficient: native
@@ -829,8 +834,9 @@ Ignored fixture preparation added redacted request provenance and requires a
 matching observed native thread/turn before returning synthetic model output.
 Both consumed preparation checkers recorded RED then GREEN; four syntax checks
 passed. Exact artifacts are `topology-*.log` and `HANDOFF.md` under the Codex
-worktree's `.companion-local/tc-ach.5/`. Permission replay remains blocked on
-reviewed attachment and background-request scope. No acceptance gate passes.
+worktree's `.companion-local/tc-ach.5/`. At that preparation boundary, permission
+replay was blocked on reviewed attachment and background-request scope. The later
+single-denial observation below does not close the product acceptance gates.
 
 ### Empty-thread native join rejected (2026-10-20 local)
 
@@ -912,7 +918,7 @@ covering its changed storage/observation scope; neither is an incarnation fence.
 
 ### Bounded initial-page warm join observed (2026-10-21 local)
 
-**The bounded join passed; shared responses remain unverified.** In fresh run
+**The bounded join passed; this no-prompt run did not test shared responses.** In fresh run
 `tui-initial-page-join-only-LUq6ol` (2026-10-22 UTC), the original Codex 0.160.0
 TUI stayed open while a second client joined its live thread. The coordinator
 accepted trust only for the disposable project and entered one native
@@ -966,14 +972,38 @@ Executor 31331 returned **2**, with native TUI exit **0**, all retained direct c
 
 Primary evidence is the Codex worktree's `.companion-local/tc-ach.5/tui-permission-deny-Bhxz20/events.jsonl` and the integration checkout's `.companion-local/tc-ach.5/native-terminal-Bhxz20-trust.json` and `native-terminal-Bhxz20-cancel.json`. The next bounded preparation must characterize the pinned existing-model action and its side effects before another reviewed grant. No model switch, policy relaxation, background-response allowance or automatic retry is authorized by this result. Earlier failures remain failed, and the LUq6ol warm-join observation remains limited to its no-prompt run.
 
+### Native single denial and terminal continuation observed (2026-10-22)
+
+The reviewed retry `tui-permission-deny-rwtYsl` completed with fixture/executor **0** and native TUI **0**. It retained the original TUI and backend throughout one locally submitted turn. After fresh-project trust, the coordinator selected **Use existing model** with Down, observed the highlighted option, and confirmed separately. The TUI displayed GPT-5.5; subsequent strict account/config samples retained `gpt-5.5`, `read-only/on-request` and the isolated loopback provider. This does not independently establish that the queued migration-notice write persisted.
+
+The command was the same `--permission-deny` invocation recorded above, under a fresh grant including that choice and its disposable notice write. After two complete samples, one local `/rename tc-ach5-permission` completed. The sole bounded-page join produced correlated warm-path and RPC-success evidence at `17:31:48.651-.653Z`; a checked post-join sample armed the fixture at `17:31:49.670Z`. No cold-path diagnostic was observed. This remains post-execution evidence, not an atomic incarnation fence.
+
+The exact reviewed patch prompt was typed once. Its first batched carriage return left it displayed in the composer, with no observed native turn or HTTP request. A subsequent standalone Enter submitted that existing draft; only one native turn was observed. The reason the first carriage return did not submit was not established. There was no repeated prompt or provider retry.
+
+The structured sequence used the same thread `01a164a8-13a2-7eb0-87bc-9eee9c8de827`, turn `01a164be-fe21-7fa1-aece-2a7a3a0cd512`, item `tc-ach5-only-patch` and native request `0`:
+
+- `17:53:21.003Z`: native turn start. Both later HTTP requests matched the observed thread/turn, `request_kind: turn`, user source, exact prompt and custom `apply_patch` advertisement.
+- `.110Z`: the bridge observed the exact permission and sent one `decline`. The write and `serverRequest/resolved` were recorded only as delivery/cleanup facts.
+- `.120Z`: the native item completed as declined; the marker remained absent.
+- `.144Z`: the same turn's continuation contained the exact native tool result `patch rejected by user`; the second finite synthetic response supplied the final assistant message.
+- `.194Z`: the fixture observed the final item and completed turn. A checked same-backend/thread idle sample followed at `17:53:22.003Z`.
+
+The original terminal returned to its composer. The coordinator typed unsent `draft-A`, changed its last character to produce `draft-B`, cleared all seven characters, observed the empty-composer placeholder, and exited with local CTRL+C. No second turn was submitted. The terminal also rendered an **Added** patch heading despite the structured declined result and absent marker; that display is not application evidence. Its presentation cause was not diagnosed here.
+
+The final result at `18:17:09.645Z` is `PARTIAL_NATIVE_DENY_OBSERVED_TUI_REVIEW_REQUIRED`: `complete:true`, two synthetic HTTP/model exchanges, one bound decline, declined item, native rejection tool result, completed turn, one post-denial sample, marker absent and all retained direct children closed. Diagnostics closed with `failed:false`; no native fixture remained running. A coordinator filesystem check after closure independently found the owned marker absent. The partial label deliberately does not certify a product gate.
+
+Raw evidence is the Codex worktree's `.companion-local/tc-ach.5/tui-permission-deny-rwtYsl/events.jsonl` and the integration checkout's `.companion-local/tc-ach.5/native-terminal-rwtYsl-*.json` terminal results. The unchanged preparation checks and source-reviewed model-choice recipe apply; no production source was changed. This establishes one denial through a second client and local terminal usability afterward. It does not establish local-first/concurrent arbitration, approval or question outcomes, stale/incarnation rejection, loss recovery, ordinary remote input, a draft present during the response, authenticated phone control, physical Android or real-account model behavior. Earlier failed experiments remain failed.
+
 ## Remaining real-account experiment for approval
 
 The no-credential two-client transport prerequisite **has passed** in the
 coordinator fixture above. The focused tests were also rerun, with the failure
 and four skips preserved. The bounded no-prompt metadata/draft experiment above
-has passed; synthetic model/tool responses remain unrun. A separately prepared
-and reviewed loopback tool-response experiment should precede a real-account
-experiment. Complete history and native response control remain unverified.
+passed. The later `rwtYsl` loopback experiment observed one exact native decline,
+the rejected tool result in the same turn's continuation, and subsequent local
+draft editing through the original TUI. Complete history, competing answers,
+approval/question outcomes, incarnation fencing and authenticated phone control
+remain unverified. The real-account experiment below remains unrun.
 Remaining product work belongs in the existing
 client/shared-server owners: WebSocket framing over owned proxy pipes, readiness
 that does not mistake Node `stat` denial for native connection failure, and
@@ -1076,8 +1106,9 @@ success supplies no reason to introduce that credential boundary now.
 |---|---|
 | Supporting no-credential transport prerequisite | **Passed:** two native proxy/WebSocket clients, empty-list assertions, and one proxy's termination without loss of the other client/backend. No native TUI or created thread; this passes none of A01 onward. |
 | Supporting live-thread join prerequisite | **Bounded warm join observed:** one second-client resume with an empty initial page while the original TUI remained open; correlated live-path diagnostic, successful RPC and post-join identity checks, zero model requests, TUI0 and retained cleanup. No approval delivery/application, incarnation fence or phone evidence. |
-| Supporting loopback-model/TUI fixture | **Relay prerequisites and bounded no-prompt metadata/draft observation passed:** integrated 21-test GREEN and CLI typecheck; combined slice 67 passed / 3 baseline failures / 2 skips (tc-ach.30). Four bounded native relay cases passed. The fourth no-prompt run observed original TUI edits with a second metadata client on the same backend/thread, then TUI0 and all retained direct child closes. Earlier history RPC failures remain recorded. History, model continuation and shared responses are unmeasured. Dependency repair is **tc-ach.5.2.1**; earlier cleanup limits remain explicit. |
-| A01–A03 | **Blocked:** partial same-endpoint/TUI/thread evidence does not establish complete structured shared control, a permission response or a question response. |
+| Supporting loopback-model/TUI fixture | **Relay prerequisites and bounded no-prompt metadata/draft observation passed:** integrated 21-test GREEN and CLI typecheck; combined slice 67 passed / 3 baseline failures / 2 skips (tc-ach.30). Four bounded native relay cases passed. The fourth no-prompt run observed original TUI edits with a second metadata client on the same backend/thread, then TUI0 and all retained direct child closes. Those no-prompt runs did not measure history, model continuation or shared responses; the later single-denial result is separate below. Dependency repair is **tc-ach.5.2.1**; earlier cleanup limits remain explicit. |
+| Supporting native denial/continuation prerequisite | **Bounded observation:** one exact native decline, matching rejected tool result and completed turn through two synthetic loopback exchanges; original TUI remained attached and accepted local draft edits afterward. Native TUI/fixture0 and retained cleanup. No competing answer, approval, phone or real-account result. |
+| A01–A03 | **Blocked product gates:** the bounded denial/TUI result does not establish the production desktop/phone path, complete shared control or a question response. |
 | A04–A06 | **Blocked:** no native local-first, competing, duplicate, or stale-response arbitration observed. |
 | A07, A20 | **Blocked:** unsent local editing was observed under concurrent metadata reads. Remote-input draft preservation and complete launch/profile/plugin/policy preservation still need their native recipes. |
 | A10, A13, A18 | **Blocked:** incarnation rejection, lost acknowledgement, and native cancellation need live evidence and the shared response contract. |
