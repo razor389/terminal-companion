@@ -11,6 +11,12 @@ rerun exited 1: **9 passed, 1 failed, 4 Windows skips**. The failure is a
 pre-existing POSIX fixture assumption. CLI typecheck passed. Node socket `stat`
 still returned `EACCES` outside the worker sandbox; native proxy access succeeded.
 
+On **2026-10-21 local time**, a later disposable experiment also observed a
+successful second-client join to the live thread while the original native TUI
+remained open. It requested one bounded empty history page, with zero model
+requests. [Exact evidence and limits](#bounded-initial-page-warm-join-observed-2026-10-21-local)
+remain distinct from permission delivery, incarnation fencing and phone control.
+
 A later account-free native permission experiment on **2026-10-19** reached the
 original TUI/thread, then failed at the synthetic model boundary: the first
 request did not advertise the exact custom `apply_patch` shape required by the
@@ -806,9 +812,11 @@ same connection/request's successful RPC response after attachment. The
 [`resume_thread_with_history`](https://github.com/openai/codex/blob/rust-v0.160.0/codex-rs/core/src/thread_manager.rs#L1257)
 trace span identifies a cold reconstruction attempt. Narrow JSON stderr logging
 is supported by the existing App Server logger. These are post-execution
-observations, not an atomic cold-path fence; the installed binary's diagnostic
-availability on the successful branch and a successful live join remain unverified. Earlier fixtures only
-counted stderr bytes and cannot supply this evidence retrospectively.
+observations, not an atomic cold-path fence. At that stage, diagnostic
+availability on the successful branch and a live join were unverified; the later
+[LUq6ol experiment](#bounded-initial-page-warm-join-observed-2026-10-21-local)
+observed both. Earlier fixtures only counted stderr bytes and cannot supply this
+evidence retrospectively. Permission replay remains unverified.
 
 The unknown fixture model also lacks the bundled patch capability supplied by
 `gpt-5.5`. Correcting that fixture configuration alone is insufficient: native
@@ -901,6 +909,46 @@ explicit limit and `itemsView: "notLoaded"` limits history observation to a page
 but still persists the thread and traverses lineage. Neither alternative ran
 in this experiment. Either needs a reviewed fixture and a fresh native grant
 covering its changed storage/observation scope; neither is an incarnation fence.
+
+### Bounded initial-page warm join observed (2026-10-21 local)
+
+**The bounded join passed; shared responses remain unverified.** In fresh run
+`tui-initial-page-join-only-LUq6ol` (2026-10-22 UTC), the original Codex 0.160.0
+TUI stayed open while a second client joined its live thread. The coordinator
+accepted trust only for the disposable project and entered one native
+`/rename tc-ach5-permission`. Exact naming completion and matching paginated
+metadata preceded the sole resume, `tc-ach5-admission-17913`:
+
+```json
+{"threadId":"<admitted original TUI thread>","excludeTurns":true,"initialTurnsPage":{"limit":1,"sortDirection":"asc","itemsView":"notLoaded"}}
+```
+
+The correlated warm-path diagnostic at `01:58:21.531Z` preceded the successful
+RPC at `.532Z`. The consumed validator accepted empty excluded turns and an empty
+initial page with both page cursors null. A complete post-join metadata/account/
+configuration sample retained the original backend/TUI/thread identity, name,
+paginated history and policy. The exact invocation used the preceding recipe's
+environment and system-directory lookup:
+
+```powershell
+& 'C:/Program Files/Git/bin/bash.exe' ./apps/stack/bin/hstack-exec -- node .companion-local/tc-ach.5/native-tui-no-prompt.cjs --reviewed-run --observe-ms 60000 --system-config-dir $systemConfigDirectory --initial-page-join-only
+```
+
+Local CTRL+C then exited the TUI with status 0. Both retained sidecars and the
+diagnostic stream closed; fixture and enclosing executor **28569 exited 0**.
+Final outcome: `PARTIAL_WARM_JOIN_OBSERVED_NO_PROMPT`, zero model HTTP requests,
+`initialTurnsPageEmpty: true` and all owned direct children closed. Evidence is
+the Codex worktree's `.companion-local/tc-ach.5/tui-initial-page-join-only-LUq6ol/events.jsonl`
+and the integration checkout's `native-terminal-LUq6ol*.json` under
+`.companion-local/tc-ach.5/`, including the actual trust, rename and local-exit
+terminal captures.
+
+This observes a successful warm join in one fresh fixture. The changed page
+request can persist owned history, but the earlier unclassified errors still
+lack a proven cause. No prompt, permission/question response, remote input,
+complete history read or Android interaction ran. The native RPC still permits
+cold reconstruction; the positive diagnostic is post-execution evidence, not an
+atomic incarnation fence. No product acceptance gate passes.
 
 ## Remaining real-account experiment for approval
 
@@ -1011,6 +1059,7 @@ success supplies no reason to introduce that credential boundary now.
 | Gates | Disposition |
 |---|---|
 | Supporting no-credential transport prerequisite | **Passed:** two native proxy/WebSocket clients, empty-list assertions, and one proxy's termination without loss of the other client/backend. No native TUI or created thread; this passes none of A01 onward. |
+| Supporting live-thread join prerequisite | **Bounded warm join observed:** one second-client resume with an empty initial page while the original TUI remained open; correlated live-path diagnostic, successful RPC and post-join identity checks, zero model requests, TUI0 and retained cleanup. No approval delivery/application, incarnation fence or phone evidence. |
 | Supporting loopback-model/TUI fixture | **Relay prerequisites and bounded no-prompt metadata/draft observation passed:** integrated 21-test GREEN and CLI typecheck; combined slice 67 passed / 3 baseline failures / 2 skips (tc-ach.30). Four bounded native relay cases passed. The fourth no-prompt run observed original TUI edits with a second metadata client on the same backend/thread, then TUI0 and all retained direct child closes. Earlier history RPC failures remain recorded. History, model continuation and shared responses are unmeasured. Dependency repair is **tc-ach.5.2.1**; earlier cleanup limits remain explicit. |
 | A01–A03 | **Blocked:** partial same-endpoint/TUI/thread evidence does not establish complete structured shared control, a permission response or a question response. |
 | A04–A06 | **Blocked:** no native local-first, competing, duplicate, or stale-response arbitration observed. |
