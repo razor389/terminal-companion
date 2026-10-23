@@ -1026,6 +1026,45 @@ Local CTRL+C exited the TUI before retained-sidecar termination. Final result at
 
 Raw evidence is the Codex worktree's `.companion-local/tc-ach.5/tui-permission-local-first-5A8tZa/events.jsonl`; attended terminal results are the integration checkout's `.companion-local/tc-ach.5/native-terminal-5A8tZa-*.json`. The pinned source and preparation checks are retained beside the fixture in `arbitration-source-evidence.log`, `native-permission-deny.md`, and the two `check-native-*-preparation.cjs` owners. Independent review reran both preparation checks successfully before execution. This is bounded native local-first/stale-successor evidence, not simultaneous race, duplicate-response, positive approval, question, incarnation, lost-acknowledgement, draft-during-response, authenticated phone, Android or real-account conformance. No production capability was activated; earlier failures remain failed.
 
+## Prepared single-action acceptance and retired duplicate probe
+
+**Native UNRUN.** The `tc-ach.5.3` preparation extends the existing disposable
+0.160.0 fixture with `--permission-approve-duplicate`. Its provider-free check
+first failed because the consumed owner sent `decline` instead of `accept`;
+the corrected permission and admission checkers pass, including their existing
+denial/local-first cases. An independent reviewer reran both successfully and
+found a stale recipe entry point, which was corrected and independently rechecked.
+These checks establish fixture behavior, not native approval support.
+
+The exact attended sequence is in the Codex worktree's
+`.companion-local/tc-ach.5/native-permission-deny.md`, section **Single acceptance
+and retired duplicate — tc-ach.5.3 preparation**; the task handoff and raw checks
+are in `.companion-local/tc-ach.5.3/`. From that worktree, using the existing frozen
+development-tool environment and a real coordinator TTY:
+
+```powershell
+$knownProgramData = [Environment]::GetFolderPath([Environment+SpecialFolder]::CommonApplicationData)
+$systemConfigDirectory = Join-Path $knownProgramData 'OpenAI/Codex'
+& 'C:/Program Files/Git/bin/bash.exe' ./apps/stack/bin/hstack-exec -- node .companion-local/tc-ach.5/native-tui-no-prompt.cjs --reviewed-run --observe-ms 60000 --system-config-dir $systemConfigDirectory --permission-approve-duplicate
+```
+
+A fresh execution grant must cover the disposable backend/original TUI/proxy,
+project trust and existing-model notice, local rename and bounded-page join
+(including possible cold side effects before rejection), one exact marker prompt,
+two synthetic loopback Responses exchanges, one single-action `accept`, and one
+unchanged retired response after checked settlement. The approved file effect
+would be `tc-ach5-denied-marker.txt` containing exactly `tc-ach5-deny-fixture\n`.
+Later unsent draft edits, local exit, retained-child cleanup and marker reads are
+part of the same recipe. No real provider account is involved.
+
+Application requires the bound native completed item, exact regular-file bytes,
+native tool result and completed same turn. Duplicate rejection requires both
+the retained response's completed write and the owned backend's matching
+missing-callback warning, with no additional tool application or model exchange.
+That warning has no sender identity; the bounded inference relies on the controlled
+two-client fixture. This probe cannot establish simultaneous arbitration, draft
+preservation during a response, incarnation fencing or authenticated phone control.
+
 ## Remaining real-account experiment for approval
 
 The no-credential two-client transport prerequisite **has passed** in the
