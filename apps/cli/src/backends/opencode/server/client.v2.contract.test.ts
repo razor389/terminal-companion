@@ -544,6 +544,39 @@ describe('OpenCodeServerRuntimeClient released V2 contract', () => {
     await client.dispose();
   });
 
+  it('preserves custom prototype-named form answers and declared option mappings on the wire', async () => {
+    const form = {
+      id: 'frm_custom',
+      sessionID: 'ses_1',
+      title: 'Custom answers',
+      fields: [
+        { key: 'name', type: 'string', title: 'Name', custom: true, options: [{ label: 'Known', value: 'known-value' }] },
+        { key: 'tags', type: 'multiselect', title: 'Tags', custom: true, options: [{ label: 'Known', value: 'known-value' }] },
+        { key: 'selected', type: 'string', title: 'Selection', options: [{ label: '__proto__', value: 'declared-value' }] },
+      ],
+    };
+    const { calls } = stubReleasedV2Server((call) => call.path === '/api/form'
+      ? Response.json({ location: { directory: '/repo' }, data: [form] })
+      : undefined);
+    const client = await makeReleasedV2Client();
+    try {
+      await client.questionList();
+      await client.questionReply({
+        requestId: 'frm_custom',
+        answers: [['constructor'], ['__proto__', 'constructor', 'toString', 'Known'], ['__proto__']],
+      });
+      expect(calls.find((call) => call.path === '/api/session/ses_1/form/frm_custom/reply')?.body).toEqual({
+        answer: {
+          name: 'constructor',
+          tags: ['__proto__', 'constructor', 'toString', 'known-value'],
+          selected: 'declared-value',
+        },
+      });
+    } finally {
+      await client.dispose();
+    }
+  });
+
   it('registers dynamic MCP through the released experimental route and reports real readiness', async () => {
     let status: Record<string, unknown> = { status: 'pending' };
     const { calls } = stubReleasedV2Server((call) => {

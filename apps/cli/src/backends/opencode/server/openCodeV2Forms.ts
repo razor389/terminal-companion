@@ -217,7 +217,9 @@ function coerceAnswerValue(
   binding: OpenCodeV2FormFieldBinding,
   labels: readonly string[],
 ): string | number | boolean | string[] | null {
-  const resolve = (label: string): string => binding.optionValueByLabel[label] ?? label;
+  const resolve = (label: string): string => Object.prototype.hasOwnProperty.call(binding.optionValueByLabel, label)
+    ? binding.optionValueByLabel[label] ?? label
+    : label;
   if (binding.type === 'multiselect') {
     // Preserve exact string values including "" and whitespace; an empty label list is
     // unanswered and falls back to the declared default via the caller.
