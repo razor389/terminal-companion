@@ -1,7 +1,7 @@
 # Codex shared control on native Windows
 
 Research basis: **2026-10-17**, **tc-ach.5**, native **codex-cli 0.160.0**.
-**Native two-client transport, structured denial and local-first stale-response handling with the original TUI
+**Native two-client transport, structured denial/acceptance and bounded stale/duplicate-response handling with the original TUI
 were observed; the complete desktop/phone contract remains BLOCKED / UNVERIFIED.** Two WebSocket clients used native proxy pipes to reach
 one disposable backend; the second remained usable after the first proxy was
 terminated. That transport probe exercised no native TUI, thread creation, model
@@ -27,6 +27,13 @@ observed local cancellation, rejection of a late response to that retired reques
 while a successor was pending, and the successor's bound decline and completed
 turn. The original TUI accepted draft edits afterward. This was a sequential,
 three-exchange synthetic fixture; concurrent races and phone control remain unverified.
+
+On **2026-10-23 local time**, the [single-action acceptance and retired-duplicate
+experiment](#native-single-action-acceptance-and-retired-duplicate-observed-2026-10-23-local)
+observed one exact marker write and completed native turn, then rejection of an
+unchanged response to the retired request. The original TUI accepted later draft
+edits and exited normally. Two synthetic exchanges were used; no product gate
+or authenticated phone capability follows from this bounded observation.
 
 A later account-free native permission experiment on **2026-10-19** reached the
 original TUI/thread, then failed at the synthetic model boundary: the first
@@ -1026,21 +1033,27 @@ Local CTRL+C exited the TUI before retained-sidecar termination. Final result at
 
 Raw evidence is the Codex worktree's `.companion-local/tc-ach.5/tui-permission-local-first-5A8tZa/events.jsonl`; attended terminal results are the integration checkout's `.companion-local/tc-ach.5/native-terminal-5A8tZa-*.json`. The pinned source and preparation checks are retained beside the fixture in `arbitration-source-evidence.log`, `native-permission-deny.md`, and the two `check-native-*-preparation.cjs` owners. Independent review reran both preparation checks successfully before execution. This is bounded native local-first/stale-successor evidence, not simultaneous race, duplicate-response, positive approval, question, incarnation, lost-acknowledgement, draft-during-response, authenticated phone, Android or real-account conformance. No production capability was activated; earlier failures remain failed.
 
-## Prepared single-action acceptance and retired duplicate probe
+## Native single-action acceptance and retired duplicate observed (2026-10-23 local)
 
-**Native UNRUN.** The `tc-ach.5.3` preparation extends the existing disposable
-0.160.0 fixture with `--permission-approve-duplicate`. Its provider-free check
+The reviewed `tui-permission-approve-duplicate-H7LAS1` experiment completed with
+fixture/executor **0**, native TUI **0**, and all retained direct children and
+diagnostics closed. One native **0.160.0** backend and the original interactive
+TUI used a fresh disposable profile/project, `gpt-5.5`, `read-only/on-request`,
+and exactly **two synthetic loopback Responses exchanges**. No real account was used.
+
+The `tc-ach.5.3` preparation extended the existing fixture with
+`--permission-approve-duplicate`. Its provider-free check
 first failed because the consumed owner sent `decline` instead of `accept`;
 the corrected permission and admission checkers pass, including their existing
 denial/local-first cases. An independent reviewer reran both successfully and
 found a stale recipe entry point, which was corrected and independently rechecked.
-These checks establish fixture behavior, not native approval support.
 
-The exact attended sequence is in the Codex worktree's
+The attended sequence is preserved in the Codex worktree's
 `.companion-local/tc-ach.5/native-permission-deny.md`, section **Single acceptance
 and retired duplicate — tc-ach.5.3 preparation**; the task handoff and raw checks
-are in `.companion-local/tc-ach.5.3/`. From that worktree, using the existing frozen
-development-tool environment and a real coordinator TTY:
+are in `.companion-local/tc-ach.5.3/`. The following command ran once from that
+worktree with the frozen development-tool environment and **tty:true**. The grant
+covered this disposable experiment; it does not authorize an automatic replay.
 
 ```powershell
 $knownProgramData = [Environment]::GetFolderPath([Environment+SpecialFolder]::CommonApplicationData)
@@ -1048,22 +1061,49 @@ $systemConfigDirectory = Join-Path $knownProgramData 'OpenAI/Codex'
 & 'C:/Program Files/Git/bin/bash.exe' ./apps/stack/bin/hstack-exec -- node .companion-local/tc-ach.5/native-tui-no-prompt.cjs --reviewed-run --observe-ms 60000 --system-config-dir $systemConfigDirectory --permission-approve-duplicate
 ```
 
-A fresh execution grant must cover the disposable backend/original TUI/proxy,
-project trust and existing-model notice, local rename and bounded-page join
-(including possible cold side effects before rejection), one exact marker prompt,
-two synthetic loopback Responses exchanges, one single-action `accept`, and one
-unchanged retired response after checked settlement. The approved file effect
-would be `tc-ach5-denied-marker.txt` containing exactly `tc-ach5-deny-fixture\n`.
-Later unsent draft edits, local exit, retained-child cleanup and marker reads are
-part of the same recipe. No real provider account is involved.
+Fresh-project trust and a visually confirmed **Use existing model** choice preceded
+local `/rename tc-ach5-permission`. One bounded-page join correlated the successful
+RPC with the owned backend's warm diagnostic and complete configuration/account
+sample. The original TUI then received the exact marker prompt once, with typing
+and Enter separated by composer inspection. No local permission answer was given.
 
-Application requires the bound native completed item, exact regular-file bytes,
-native tool result and completed same turn. Duplicate rejection requires both
-the retained response's completed write and the owned backend's matching
-missing-callback warning, with no additional tool application or model exchange.
-That warning has no sender identity; the bounded inference relies on the controlled
-two-client fixture. This probe cannot establish simultaneous arbitration, draft
-preservation during a response, incarnation fencing or authenticated phone control.
+The action retained thread `01a16aeb-83fd-77e0-b0f7-51f28a5d2cca`, turn
+`01a16b23-163f-7a80-9014-b845362cb933`, item `tc-ach5-only-patch` and native request
+`0` throughout. On **2026-10-23 UTC**:
+
+- At `23:40:24.149Z`, the second client sent one `accept`, never `acceptForSession`.
+  Request cleanup followed but was explicitly not counted as application.
+- At `23:40:27.469Z`, the bound native item was completed and the regular marker
+  matched exactly. The successful native tool-result classifier passed at `.493Z`;
+  the final assistant item and completed same turn followed at `.542Z`.
+- A complete idle/account/config sample preceded the unchanged duplicate at
+  `23:40:28.325Z`. Its write completed, then the owned backend's matching missing
+  callback warning arrived at `.327Z`. Another complete idle sample followed at
+  `23:40:29.345Z`. No extra permission, tool application, turn or HTTP exchange
+  was observed.
+
+The original TUI subsequently accepted unsent `draft-A`, one backspace plus `B`,
+and seven backspaces restoring the empty composer. Local Ctrl+C produced TUI0
+before the retained proxy/backend were stopped and closed. The final result at
+`2026-10-24T01:39:54.959Z` (October 23 locally) was
+`PARTIAL_NATIVE_ACCEPT_RETIRED_DUPLICATE_OBSERVED_TUI_REVIEW_REQUIRED`,
+`complete:true`, with two model requests, matching marker and closed diagnostics.
+Coordinator and independent-review reads each confirmed the marker was a regular
+file with exactly the **21 UTF-8 bytes** `tc-ach5-deny-fixture\n`.
+
+Raw evidence is the Codex worktree's
+`.companion-local/tc-ach.5/tui-permission-approve-duplicate-H7LAS1/events.jsonl`;
+attended terminal results and the coordinator verification are in the integration
+checkout's `.companion-local/tc-ach.5.3/native-terminal-H7LAS1-*.json` and
+`native-H7LAS1-coordinator-verification.json`. Independent review reconciled the
+unchanged owner, raw records, marker and terminal artifacts. Native item/result
+details are strict source-backed redacted classifications, not verbatim retained
+wire payloads. The warning has no sender identity and is not an authenticated
+application acknowledgement or a general exactly-once guarantee. Draft edits
+occurred after completion; cleanup covers retained direct children. Simultaneous
+arbitration, draft preservation during a response, incarnation fencing, loss
+recovery, complete history, authenticated phone/Android and real-account gates
+remain unverified. No production capability or Windows guard changed.
 
 ## Remaining real-account experiment for approval
 
@@ -1075,7 +1115,7 @@ the rejected tool result in the same turn's continuation, and subsequent local
 draft editing through the original TUI. The later local-first fixture also
 observed native cancellation and a retired-ID response leaving its successor
 unaffected. Complete history, simultaneous competing answers,
-approval/question outcomes, incarnation fencing and authenticated phone control
+question outcomes, incarnation fencing and authenticated phone control
 remain unverified. The real-account experiment below remains unrun.
 Remaining product work belongs in the existing
 client/shared-server owners: WebSocket framing over owned proxy pipes, readiness
@@ -1182,8 +1222,9 @@ success supplies no reason to introduce that credential boundary now.
 | Supporting loopback-model/TUI fixture | **Relay prerequisites and bounded no-prompt metadata/draft observation passed:** integrated 21-test GREEN and CLI typecheck; combined slice 67 passed / 3 baseline failures / 2 skips (tc-ach.30). Four bounded native relay cases passed. The fourth no-prompt run observed original TUI edits with a second metadata client on the same backend/thread, then TUI0 and all retained direct child closes. Those no-prompt runs did not measure history, model continuation or shared responses; the later single-denial result is separate below. Dependency repair is **tc-ach.5.2.1**; earlier cleanup limits remain explicit. |
 | Supporting native denial/continuation prerequisite | **Bounded observation:** one exact native decline, matching rejected tool result and completed turn through two synthetic loopback exchanges; original TUI remained attached and accepted local draft edits afterward. Native TUI/fixture0 and retained cleanup. No competing answer, approval, phone or real-account result. |
 | Supporting local-first/stale-successor prerequisite | **Bounded observation:** local No interrupted A without a bridge response; late A cancel encountered a retired native callback while B was pending; B's bound decline produced a rejected tool result and completed turn. Three synthetic exchanges, later original-TUI draft edits, TUI/fixture0 and retained cleanup. No simultaneous race or incarnation fence. |
-| A01–A03 | **Blocked product gates:** the bounded denial/TUI result does not establish the production desktop/phone path, complete shared control or a question response. |
-| A04–A06 | **Blocked product gates:** one native sequential local-first/stale-successor case observed; simultaneous competing responses, duplicates, production binding and phone behavior remain unverified. |
+| Supporting acceptance/retired-duplicate prerequisite | **Bounded observation:** one exact native marker acceptance, successful tool result and completed turn; one unchanged retired response rejected after checked idle, with no extra application observed. Two synthetic exchanges, later original-TUI draft edits, TUI/fixture0 and retained cleanup. No general exactly-once or authenticated acknowledgement claim. |
+| A01–A03 | **Blocked product gates:** bounded native response/TUI results do not establish the production desktop/phone path, complete shared control or a question response. |
+| A04–A06 | **Blocked product gates:** sequential local-first/stale-successor and retired-duplicate cases observed; simultaneous competing responses, reordering, production binding and phone behavior remain unverified. |
 | A07, A20 | **Blocked:** unsent local editing was observed under concurrent metadata reads. Remote-input draft preservation and complete launch/profile/plugin/policy preservation still need their native recipes. |
 | A10, A13, A18 | **Blocked product gates:** bounded native local cancellation observed; incarnation rejection, lost acknowledgement, wider cancellation/expiry behavior and the shared response contract remain unverified. |
 | A19 | Source restriction confirmed; end-to-end unsupported-state UX and production transport integration remain unverified. |
