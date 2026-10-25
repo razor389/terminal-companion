@@ -1,7 +1,7 @@
 # Codex shared control on native Windows
 
 Research basis: **2026-10-17**, **tc-ach.5**, native **codex-cli 0.160.0**.
-**Native two-client transport, structured denial/acceptance and bounded stale/duplicate-response handling with the original TUI
+**Native two-client transport, structured denial/acceptance, one question answer with a preserved visible draft, and bounded stale/duplicate-response handling with the original TUI
 were observed; the complete desktop/phone contract remains BLOCKED / UNVERIFIED.** Two WebSocket clients used native proxy pipes to reach
 one disposable backend; the second remained usable after the first proxy was
 terminated. That transport probe exercised no native TUI, thread creation, model
@@ -34,6 +34,12 @@ observed one exact marker write and completed native turn, then rejection of an
 unchanged response to the retired request. The original TUI accepted later draft
 edits and exited normally. Two synthetic exchanges were used; no product gate
 or authenticated phone capability follows from this bounded observation.
+
+On **2026-10-24**, the [structured-question experiment](#native-question-and-pre-existing-draft-observed-2026-10-24)
+observed one exact remote answer in the same native turn. An existing unsent
+draft was unchanged before and after the question/answer in the original TUI. The local Plan-mode setting retained
+the configured model and read-only/on-request policy. This was another two-exchange
+synthetic fixture, not an authenticated phone or ordinary remote-input test.
 
 A later account-free native permission experiment on **2026-10-19** reached the
 original TUI/thread, then failed at the synthetic model boundary: the first
@@ -1213,6 +1219,77 @@ before accepting a client. This alternative has not been run or authorized and
 remains subject to the documented experimental status. The proxy transport
 success supplies no reason to introduce that credential boundary now.
 
+## Native question and pre-existing draft observed (2026-10-24)
+
+**Bounded native observation:** the original Codex **0.160.0** TUI retained the
+visible unsent text `tc-ach5-unsent-A` across a second client's structured `Beta`
+answer and the same native turn's completion. The TUI then accepted a local edit,
+clear and normal exit. This advances question/draft feasibility, not product
+certification or a general guarantee about arbitrary drafts and response races.
+
+The independently reviewed `tc-ach.5.4` preparation extended the existing ignored
+fixture owners. Its HTTP-owner RED returned 403 instead of holding the new question
+exchange; both provider-free checkers subsequently passed, including earlier
+permission scenarios. The independent reviewer reran both successfully. No tracked
+production code or Windows shared-control guard changed for this experiment.
+
+The explicitly granted command ran in the Codex worktree with actual `tty:true`,
+the existing offline development-tool environment, and the system config path
+obtained from `CommonApplicationData`:
+
+```powershell
+& 'C:/Program Files/Git/bin/bash.exe' ./apps/stack/bin/hstack-exec -- node .companion-local/tc-ach.5/native-tui-no-prompt.cjs --reviewed-run --observe-ms 60000 --system-config-dir $systemConfigDirectory --question-draft
+```
+
+Fresh fixture `tc-ach5-tui-l3zEv1` used a disposable home/project, no account or
+provider credentials, and a non-forwarding loopback model endpoint. The original
+native TUI selected the existing model, named its thread locally, and admitted
+the second client through the previously reviewed bounded-page warm join. Local
+`/plan` selected **gpt-5.5 medium**; read-only/on-request remained unchanged. The
+one local prompt was `Use request_user_input to ask the one fixture label question. Do nothing else.`
+
+The first synthetic response stayed held while the coordinator observed the
+unsent draft in the ordinary composer. Only then was the fresh run-local
+`draft-ready.json` written with the exact observed thread/turn. After rechecking
+account/configuration and original-child identity, the fixture emitted one
+`request_user_input` function call. Native request **0**, item
+`tc-ach5-only-question`, question `tc_ach5_choice` offered Alpha and Beta. The
+second client returned only `{"answers":{"tc_ach5_choice":{"answers":["Beta"]}}}`.
+No local question answer, permission-policy change, shell or patch action occurred.
+
+At **21:20:09.245Z**, the native request and bound answer were recorded. Socket
+write and `serverRequest/resolved` were classified only as delivery/cleanup. At
+**21:20:09.292Z**, the native function-tool continuation contained the exact answer;
+the same turn completed at **21:20:09.343Z**. One complete idle account/configuration
+sample followed while the original TUI remained alive. There were exactly two
+synthetic exchanges and one native question/answer. The marker remained absent.
+
+The terminal showed the unchanged original draft after the question modal closed
+and after native completion. Only after comparing it did the coordinator edit its
+last character to B, clear the draft without Enter, and exit locally. TUI exit 0
+preceded stopping the retained proxy/backend handles; all three direct children
+closed. Executor **69259** terminated **0**. The final **22:44:08.670Z** result was
+`PARTIAL_NATIVE_QUESTION_ANSWER_OBSERVED_DRAFT_REVIEW_REQUIRED` with
+`complete:true`, `toolResult:true`, `turnCompleted:true`, and
+`allOwnedChildrenClosed:true`.
+
+Evidence is the Codex worktree's
+`.companion-local/tc-ach.5/tui-question-draft-HZXa3t/events.jsonl` and preparation
+`.companion-local/tc-ach.5.4/HANDOFF.md`, source excerpts and checker logs. Root
+`.companion-local/tc-ach.5.4/native-question-*.json` retains actual terminal tool
+results. The before/after output was truncated through long spinner backlogs;
+the surviving tails show the deciding composer text and modal/completion sequence.
+These are bounded rendered-text observations, not a byte-for-byte editor-state
+measurement. The automated result correctly retains
+`draftPreservationMeasured:false`: the attestation file alone is not native proof.
+
+No authenticated phone/Android, ordinary remote message, simultaneous competing
+answer, arbitrary draft/cursor preservation, incarnation fence, lost-ACK recovery,
+complete-history or real-account gate follows. Native payload evidence is strictly
+classified/redacted rather than retained verbatim. Cleanup proves the retained
+direct-child lifecycle, not the state of unknown descendants. The runtime grant
+is consumed; historical PIDs must not be queried or signaled.
+
 ## Acceptance boundary and remaining risk
 
 | Gates | Disposition |
@@ -1223,9 +1300,10 @@ success supplies no reason to introduce that credential boundary now.
 | Supporting native denial/continuation prerequisite | **Bounded observation:** one exact native decline, matching rejected tool result and completed turn through two synthetic loopback exchanges; original TUI remained attached and accepted local draft edits afterward. Native TUI/fixture0 and retained cleanup. No competing answer, approval, phone or real-account result. |
 | Supporting local-first/stale-successor prerequisite | **Bounded observation:** local No interrupted A without a bridge response; late A cancel encountered a retired native callback while B was pending; B's bound decline produced a rejected tool result and completed turn. Three synthetic exchanges, later original-TUI draft edits, TUI/fixture0 and retained cleanup. No simultaneous race or incarnation fence. |
 | Supporting acceptance/retired-duplicate prerequisite | **Bounded observation:** one exact native marker acceptance, successful tool result and completed turn; one unchanged retired response rejected after checked idle, with no extra application observed. Two synthetic exchanges, later original-TUI draft edits, TUI/fixture0 and retained cleanup. No general exactly-once or authenticated acknowledgement claim. |
-| A01–A03 | **Blocked product gates:** bounded native response/TUI results do not establish the production desktop/phone path, complete shared control or a question response. |
+| Supporting question/pre-existing-draft prerequisite | **Bounded observation:** one exact structured Beta answer and native same-turn continuation through two synthetic exchanges; the original visible unsent draft survived modal dismissal/completion, then accepted local edit/clear. TUI/fixture0 and retained cleanup. No ordinary remote-input, arbitrary editor-state or phone claim. |
+| A01–A03 | **Blocked product gates:** bounded native permission/question/TUI results do not establish the production desktop/phone path or complete shared control. |
 | A04–A06 | **Blocked product gates:** sequential local-first/stale-successor and retired-duplicate cases observed; simultaneous competing responses, reordering, production binding and phone behavior remain unverified. |
-| A07, A20 | **Blocked:** unsent local editing was observed under concurrent metadata reads. Remote-input draft preservation and complete launch/profile/plugin/policy preservation still need their native recipes. |
+| A07, A20 | **Blocked product gates:** one pre-existing visible ASCII draft survived the native structured question response. Active typing while a response arrives, ordinary remote-input and arbitrary editor-state preservation, plus complete launch/profile/plugin/policy preservation, still need their native recipes. |
 | A10, A13, A18 | **Blocked product gates:** bounded native local cancellation observed; incarnation rejection, lost acknowledgement, wider cancellation/expiry behavior and the shared response contract remain unverified. |
 | A19 | Source restriction confirmed; end-to-end unsupported-state UX and production transport integration remain unverified. |
 | A08–A09, A11–A12, A14–A17 | Separate composed/security/Android/multi-machine/launcher gates. This spike provides no passing result for them. |
