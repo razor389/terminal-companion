@@ -12,6 +12,40 @@ Keep ordinary chat, terminal bytes, structured permissions, and questions distin
 
 Push contains opaque routing hints by default. No bearer approval URLs, secrets, source code, or command previews on a locked phone. Require authenticated in-app review for consequential actions; assess device-unlock/biometric requirements rather than silently adding blanket tap-to-allow. Provide device revocation, key recovery guidance, and bounded/redacted audit records.
 
+## Windows IPC storage boundary
+
+**Approved by Ross on 2026-10-24 in `tc-ach.7.3.4`; the proposed boundary is
+SUPERSEDED_BY_APPROVED_AMENDMENT. Implementation and native acceptance remain
+unfinished.** The Windows protection work in
+`tc-ach.7.3` found that private secret files alone do not protect a pathname that
+another ordinary local principal can replace through an ancestor directory.
+Claude later executes materialized hook code by pathname, after publication
+handles close. Temporary handle retention does not establish that later trust.
+The [CLI home resolver](../../apps/cli/src/configuration.ts) accepts default and
+custom homes, including network path spellings; that acceptance is not evidence
+that a remote storage operator is trusted with companion secrets or code.
+
+**Approved pilot boundary:** preserve configured default/custom homes on
+verified local Windows storage. Protect application-owned secrets and executable
+inputs, and verify that untrusted ordinary principals cannot redirect their path
+components through deletion, replacement, ownership or DACL control. Ancestor
+read/list/traverse permissions and unrelated sibling creation remain permissible.
+Do not require private leaf ACLs on every system directory, trust arbitrary
+ancestor owners, move an installation, or repair unrelated existing ACLs.
+
+The executing OS's administrative authority remains outside the protection
+guarantee stated above. A remote file-server administrator is a separate
+authority: the approved boundary leaves network-backed protected IPC unavailable
+for the pilot, including mapped network drives, with an explicit unsupported
+result. It must not infer local storage from a drive-letter spelling. Unverifiable
+local protection fails closed with a visible diagnostic.
+
+Future network-home support requires explicit approval of storage-operator trust
+and separate share-backed ACL, identity, replacement and handle-lifetime validation.
+This decision does not authorize credential access, native ACL testing, broader
+permissions, or changes to existing installations. It is a planned boundary, not
+a security-certification claim.
+
 ## Fork/build isolation
 
 Use a dedicated development relay/account and disposable workspaces. Do not pair a modified development build with sensitive production sessions until its boundaries are reviewed. Do not copy `.happier`, `.codex`, Claude/OpenCode auth, `.env`, cloud keys, Android keystores, FCM service-account keys, or raw logs into this public fork.
