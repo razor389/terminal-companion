@@ -1,4 +1,5 @@
 import { EventEmitter } from 'node:events';
+import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { PtyProcess } from '@/integrations/pty/ptyProvider';
@@ -297,7 +298,7 @@ describe('createNodePtyProvider', () => {
   it('tries packaged absolute module paths when bare PTY module resolution misses', async () => {
     const pty = createFakeProcess();
     const nodePty = { spawn: vi.fn(() => pty) };
-    const absoluteNodePty = 'C:/Users/test/happier-v0.2.10-windows-x64/node_modules/node-pty';
+    const absoluteNodePty = join('C:/Users/test/happier-v0.2.10-windows-x64', 'node_modules', 'node-pty');
 
     const { provider, requireCalls } = await loadProviderWithModules({
       [absoluteNodePty]: nodePty,
@@ -324,8 +325,9 @@ describe('createNodePtyProvider', () => {
   it('tries packaged package entry files when Bun cannot resolve absolute package directories', async () => {
     const pty = createFakeProcess();
     const nodePty = { spawn: vi.fn(() => pty) };
-    const packageDir = 'C:/Users/test/happier-v0.2.10-windows-x64/node_modules/node-pty';
-    const packageEntry = 'C:/Users/test/happier-v0.2.10-windows-x64/node_modules/node-pty/lib/index.js';
+    const packageDir = join('C:/Users/test/happier-v0.2.10-windows-x64', 'node_modules', 'node-pty');
+    // A distinct main proves package.json was read instead of using the lib/index.js fallback.
+    const packageEntry = join(packageDir, 'dist', 'index.js');
 
     const { provider, requireCalls } = await loadProviderWithModules({
       [packageEntry]: nodePty,
@@ -339,7 +341,7 @@ describe('createNodePtyProvider', () => {
       platform: 'win32',
       fallbackProvider: null,
     }, {
-      [`${packageDir}/package.json`]: { main: './lib/index.js' },
+      [join(packageDir, 'package.json')]: { main: './dist/index.js' },
     });
 
     const spawned = provider.spawn({ file: '/bin/bash', args: [], options: {} });
@@ -355,7 +357,7 @@ describe('createNodePtyProvider', () => {
   it('tries packaged module paths next to the self-contained Windows executable', async () => {
     const pty = createFakeProcess();
     const nodePty = { spawn: vi.fn(() => pty) };
-    const packageDir = 'C:/Users/test/happier-v0.2.10-windows-x64/node_modules/node-pty';
+    const packageDir = join('C:/Users/test/happier-v0.2.10-windows-x64', 'node_modules', 'node-pty');
 
     const { provider, requireCalls } = await loadProviderWithModules({
       [packageDir]: nodePty,
